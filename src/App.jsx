@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 
 // ═══════════════════════════════════════════════════════════════════
 // 2026 TAX PARAMETERS
@@ -450,13 +450,40 @@ function findBE(spouseInc, nU6, n617) {
 // ═══════════════════════════════════════════════════════════════════
 export default function App() {
   const [target, setTarget] = useState(100000);
+  const [targetInput, setTargetInput] = useState("100000");
+
   const [spouseInc, setSpouseInc] = useState(20000);
+  const [spouseIncInput, setSpouseIncInput] = useState("20000");
+
   const [nU6, setNU6] = useState(2);
   const [n617, setN617] = useState(0);
+
   const [abCorp, setAbCorp] = useState(150000);
+  const [abCorpInput, setAbCorpInput] = useState("150000");
+
   const [mode, setMode] = useState("target");
   const [openSec, setOpenSec] = useState({});
   const tog = k => setOpenSec(p => ({ ...p, [k]: !p[k] }));
+  const commitNumber = (text, setter, fallback) => {
+    const n = Number(text);
+    if (Number.isFinite(n) && n >= 0) {
+      setter(n);
+    } else {
+      setter(fallback);
+    }
+  };
+
+  useEffect(() => {
+    setTargetInput(String(target));
+  }, [target]);
+
+  useEffect(() => {
+    setSpouseIncInput(String(spouseInc));
+  }, [spouseInc]);
+
+  useEffect(() => {
+    setAbCorpInput(String(abCorp));
+  }, [abCorp]);
 
   const tRes = useMemo(() => {
     const sN = solve(target, spouseInc, nU6, n617, "salary");
@@ -573,10 +600,94 @@ export default function App() {
           <div style={{ fontSize: 11, fontFamily: V.mono, color: V.muted, marginTop: 2 }}>BC · CCPC SBD · 2026 · Non-eligible dividends · EI exempt</div>
         </div>
 
+        
+        
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(125px, 1fr))", gap: 10, background: V.card, borderRadius: 8, padding: 12, border: `1px solid ${V.border}`, marginBottom: 14 }}>
-          {[["Target After-Tax", target, setTarget, 5000], ["Spouse Gross", spouseInc, setSpouseInc, 1000], ["Children <6", nU6, setNU6, 1], ["Children 6–17", n617, setN617, 1], ["A/B Corp Cost", abCorp, setAbCorp, 5000]].map(([lbl, val, set, step]) => (
-            <div key={lbl}><div style={{ fontSize: 9.5, fontFamily: V.mono, color: V.muted, textTransform: "uppercase", marginBottom: 3, letterSpacing: "0.04em" }}>{lbl}</div><input type="number" value={val} onChange={e => set(Math.max(0, +e.target.value))} step={step} style={inputS} /></div>
-          ))}
+          <div>
+            <div style={{ fontSize: 9.5, fontFamily: V.mono, color: V.muted, textTransform: "uppercase", marginBottom: 3, letterSpacing: "0.04em" }}>
+              Target After-Tax
+            </div>
+            <input
+              type="number"
+              value={targetInput}
+              onChange={e => setTargetInput(e.target.value)}
+              onBlur={() => commitNumber(targetInput, setTarget, target)}
+              onKeyDown={e => {
+                if (e.key === "Enter") {
+                  commitNumber(targetInput, setTarget, target);
+                  e.currentTarget.blur();
+                }
+              }}
+              step={5000}
+              style={inputS}
+            />
+          </div>
+
+          <div>
+            <div style={{ fontSize: 9.5, fontFamily: V.mono, color: V.muted, textTransform: "uppercase", marginBottom: 3, letterSpacing: "0.04em" }}>
+              Spouse Gross
+            </div>
+            <input
+              type="number"
+              value={spouseIncInput}
+              onChange={e => setSpouseIncInput(e.target.value)}
+              onBlur={() => commitNumber(spouseIncInput, setSpouseInc, spouseInc)}
+              onKeyDown={e => {
+                if (e.key === "Enter") {
+                  commitNumber(spouseIncInput, setSpouseInc, spouseInc);
+                  e.currentTarget.blur();
+                }
+              }}
+              step={1000}
+              style={inputS}
+            />
+          </div>
+
+          <div>
+            <div style={{ fontSize: 9.5, fontFamily: V.mono, color: V.muted, textTransform: "uppercase", marginBottom: 3, letterSpacing: "0.04em" }}>
+              Children &lt;6
+            </div>
+            <input
+              type="number"
+              value={nU6}
+              onChange={e => setNU6(Math.max(0, +e.target.value))}
+              step={1}
+              style={inputS}
+            />
+          </div>
+
+          <div>
+            <div style={{ fontSize: 9.5, fontFamily: V.mono, color: V.muted, textTransform: "uppercase", marginBottom: 3, letterSpacing: "0.04em" }}>
+              Children 6–17
+            </div>
+            <input
+              type="number"
+              value={n617}
+              onChange={e => setN617(Math.max(0, +e.target.value))}
+              step={1}
+              style={inputS}
+            />
+          </div>
+
+          <div>
+            <div style={{ fontSize: 9.5, fontFamily: V.mono, color: V.muted, textTransform: "uppercase", marginBottom: 3, letterSpacing: "0.04em" }}>
+              A/B Corp Cost
+            </div>
+            <input
+              type="number"
+              value={abCorpInput}
+              onChange={e => setAbCorpInput(e.target.value)}
+              onBlur={() => commitNumber(abCorpInput, setAbCorp, abCorp)}
+              onKeyDown={e => {
+                if (e.key === "Enter") {
+                  commitNumber(abCorpInput, setAbCorp, abCorp);
+                  e.currentTarget.blur();
+                }
+              }}
+              step={5000}
+              style={inputS}
+            />
+          </div>
         </div>
 
         <div style={{ display: "flex", marginBottom: 14, borderRadius: 6, overflow: "hidden", border: `1px solid ${V.border}` }}>
