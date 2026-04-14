@@ -552,7 +552,7 @@ export default function App() {
     { l: "Corporate Cost", s: sal.corpCost, d: div.corpCost },
     { l: "Corporate Tax (SBD 11%)", s: sal.corpTax, d: div.corpTax },
     { l: "Personal Income Tax", s: sal.personalTax, d: div.personalTax },
-    { l: "CPP (Ee + Er)", s: sal.cppEe + sal.cppEr, d: 0 },
+    { l: "CPP (EE + ER)", s: sal.cppEe + sal.cppEr, d: 0 },
     { l: "Total Tax & CPP", s: sal.totalTax, d: div.totalTax, hl: true, lo: true },
     null,
     { l: "Family AFNI", s: sal.familyAFNI, d: div.familyAFNI, hl: true, lo: true },
