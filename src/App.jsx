@@ -435,13 +435,20 @@ function solve(target, spouseInc, nU6, n617, strat) {
 
 function findBE(spouseInc, nU6, n617) {
   let lo = 30000, hi = 400000;
+  const diffAt = c => salaryFull(c, spouseInc, nU6, n617).familyAfterTax
+                    - dividendFull(c, spouseInc, nU6, n617).familyAfterTax;
+  const diffLo = diffAt(lo);
+  const diffHi = diffAt(hi);
+  if (diffLo === 0) return lo;
+  if (diffHi === 0) return hi;
+  // No sign change in range — no crossing
+  if (Math.sign(diffLo) === Math.sign(diffHi)) return null;
   for (let i = 0; i < 35; i++) {
     const mid = (lo + hi) / 2;
-    const s = salaryFull(mid, spouseInc, nU6, n617);
-    const d = dividendFull(mid, spouseInc, nU6, n617);
-    if (s.familyAfterTax - d.familyAfterTax > 0) lo = mid; else hi = mid;
+    const diffMid = diffAt(mid);
+    if (diffMid === 0) return mid;
+    if (Math.sign(diffMid) === Math.sign(diffLo)) lo = mid; else hi = mid;
   }
-  if (Math.abs(lo - hi) > 1000) return null;
   return (lo + hi) / 2;
 }
 
@@ -508,7 +515,7 @@ export default function App() {
     for (let c = 40000; c <= 300000; c += 10000) {
       const s = salaryFull(c, spouseInc, nU6, n617);
       const d = dividendFull(c, spouseInc, nU6, n617);
-      p.push({ c, sAT: s.familyAfterTax, dAT: d.familyAfterTax, sTx: s.totalTax, dTx: d.totalTax });
+      p.push({ c, sAT: s.familyAfterTax, dAT: d.familyAfterTax, sTx: s.totalTax, dTx: d.totalTax, deltaAT: s.familyAfterTax - d.familyAfterTax });
     }
     return p;
   }, [spouseInc, nU6, n617]);
@@ -555,26 +562,104 @@ export default function App() {
     );
   };
 
-  const cW = 640, cH = 220, cP = { t: 20, r: 16, b: 36, l: 56 };
+  const cW = 860, cH = 300, cP = { t: 32, r: 20, b: 46, l: 64 };
   const iW = cW - cP.l - cP.r, iH = cH - cP.t - cP.b;
-  const Chrt = ({ data, k1, k2, l1, l2, c1, c2 }) => {
+  const Chrt = ({ data, k1, k2, l1, l2, c1, c2, lowerIsBetter }) => {
     const aY = data.flatMap(d => [d[k1], d[k2]]);
     const yMn = Math.min(...aY), yMx = Math.max(...aY), yR = yMx - yMn || 1;
     const xMn = data[0].c, xMx = data[data.length - 1].c, xR = xMx - xMn || 1;
     const tX = v => cP.l + ((v - xMn) / xR) * iW;
     const tY = v => cP.t + iH - ((v - yMn) / yR) * iH;
+
+    // Build filled area segments between the two curves with crossover interpolation
+    const fills = [];
+    for (let i = 0; i < data.length - 1; i++) {
+      const d0 = data[i], d1 = data[i + 1];
+      const diff0 = d0[k1] - d0[k2], diff1 = d1[k1] - d1[k2];
+      const salBetter = v => lowerIsBetter ? v < 0 : v > 0;
+      const addFill = (ax, ay1, ay2, bx, by1, by2) =>
+        fills.push({ salaryBetter: salBetter(ay1 - ay2), path: `M${tX(ax)},${tY(ay1)} L${tX(bx)},${tY(by1)} L${tX(bx)},${tY(by2)} L${tX(ax)},${tY(ay2)} Z` });
+      if (Math.sign(diff0) === Math.sign(diff1) || diff0 === 0 || diff1 === 0) {
+        addFill(d0.c, d0[k1], d0[k2], d1.c, d1[k1], d1[k2]);
+      } else {
+        const t = diff0 / (diff0 - diff1);
+        const crossC = d0.c + t * (d1.c - d0.c);
+        const crossV = d0[k1] + t * (d1[k1] - d0[k1]);
+        addFill(d0.c, d0[k1], d0[k2], crossC, crossV, crossV);
+        addFill(crossC, crossV, crossV, d1.c, d1[k1], d1[k2]);
+      }
+    }
+
     const p1 = data.map((d, i) => `${i ? "L" : "M"}${tX(d.c)},${tY(d[k1])}`).join("");
     const p2 = data.map((d, i) => `${i ? "L" : "M"}${tX(d.c)},${tY(d[k2])}`).join("");
     const yS = Math.ceil(yR / 4 / 10000) * 10000;
     const yT = [];
     for (let v = Math.floor(yMn / yS) * yS; v <= yMx + yS; v += yS) if (v >= yMn - yS * 0.5 && v <= yMx + yS * 0.5) yT.push(v);
+    const xTicks = data.filter(d => d.c % 50000 === 0);
+
     return (
-      <svg viewBox={`0 0 ${cW} ${cH}`} style={{ width: "100%", maxWidth: cW, display: "block" }}>
-        {yT.map(v => <g key={v}><line x1={cP.l} y1={tY(v)} x2={cP.l + iW} y2={tY(v)} stroke={V.grid} strokeWidth="0.5" /><text x={cP.l - 6} y={tY(v) + 3.5} fill={V.muted} fontSize="9" textAnchor="end" fontFamily={V.mono}>{Math.round(v / 1000)}k</text></g>)}
-        {be && be >= xMn && be <= xMx && <><line x1={tX(be)} y1={cP.t} x2={tX(be)} y2={cP.t + iH} stroke={V.be} strokeWidth="1.5" strokeDasharray="5,3" /><text x={tX(be)} y={cP.t - 3} fill={V.be} fontSize="8.5" textAnchor="middle" fontFamily={V.mono}>B/E {F(be)}</text></>}
-        <path d={p1} fill="none" stroke={c1} strokeWidth="2.5" /><path d={p2} fill="none" stroke={c2} strokeWidth="2.5" />
-        <rect x={cP.l + 8} y={cP.t + 3} width="10" height="2.5" rx="1" fill={c1} /><text x={cP.l + 22} y={cP.t + 9} fill={V.fg} fontSize="9" fontFamily={V.mono}>{l1}</text>
-        <rect x={cP.l + 8} y={cP.t + 14} width="10" height="2.5" rx="1" fill={c2} /><text x={cP.l + 22} y={cP.t + 20} fill={V.fg} fontSize="9" fontFamily={V.mono}>{l2}</text>
+      <svg viewBox={`0 0 ${cW} ${cH}`} style={{ width: "100%", display: "block" }}>
+        {/* Filled regions between curves */}
+        {fills.map((f, i) => <path key={i} d={f.path} fill={f.salaryBetter ? c1 : c2} fillOpacity={0.13} stroke="none" />)}
+        {/* Y-axis grid + labels */}
+        {yT.map(v => <g key={v}><line x1={cP.l} y1={tY(v)} x2={cP.l + iW} y2={tY(v)} stroke={V.grid} strokeWidth="0.5" /><text x={cP.l - 6} y={tY(v) + 3.5} fill={V.muted} fontSize="10" textAnchor="end" fontFamily={V.mono}>{Math.round(v / 1000)}k</text></g>)}
+        {/* X-axis ticks + labels */}
+        {xTicks.map(d => <g key={d.c}><line x1={tX(d.c)} y1={cP.t + iH} x2={tX(d.c)} y2={cP.t + iH + 4} stroke={V.border} strokeWidth="1" /><text x={tX(d.c)} y={cP.t + iH + 16} fill={V.muted} fontSize="9.5" textAnchor="middle" fontFamily={V.mono}>{d.c / 1000}k</text></g>)}
+        {/* Break-even */}
+        {be !== null && be >= xMn && be <= xMx && <><line x1={tX(be)} y1={cP.t} x2={tX(be)} y2={cP.t + iH} stroke={V.be} strokeWidth="1.5" strokeDasharray="5,3" /><text x={tX(be)} y={cP.t - 8} fill={V.be} fontSize="9.5" textAnchor="middle" fontFamily={V.mono}>B/E {F(be)}</text></>}
+        {/* Lines */}
+        <path d={p1} fill="none" stroke={c1} strokeWidth="2.5" />
+        <path d={p2} fill="none" stroke={c2} strokeWidth="2.5" />
+        {/* Legend */}
+        <rect x={cP.l + 8} y={cP.t + 4} width="12" height="3" rx="1.5" fill={c1} /><text x={cP.l + 24} y={cP.t + 11} fill={V.fg} fontSize="10" fontFamily={V.mono}>{l1}</text>
+        <rect x={cP.l + 8} y={cP.t + 18} width="12" height="3" rx="1.5" fill={c2} /><text x={cP.l + 24} y={cP.t + 25} fill={V.fg} fontSize="10" fontFamily={V.mono}>{l2}</text>
+        {/* X-axis label */}
+        <text x={cW / 2} y={cH - 4} fill={V.muted} fontSize="9.5" textAnchor="middle" fontFamily={V.mono}>Corp Cost / Gross Salary</text>
+      </svg>
+    );
+  };
+
+  const DeltaChrt = ({ data }) => {
+    const vals = data.map(d => d.deltaAT);
+    const yMx = Math.max(...vals.map(Math.abs), 1);
+    // Symmetric y-axis centred on zero
+    const yMn = -yMx, yR = yMx * 2;
+    const xMn = data[0].c, xMx = data[data.length - 1].c, xR = xMx - xMn || 1;
+    const tX = v => cP.l + ((v - xMn) / xR) * iW;
+    const tY = v => cP.t + iH - ((v - yMn) / yR) * iH;
+    const zeroY = tY(0);
+
+    // Path
+    const path = data.map((d, i) => `${i ? "L" : "M"}${tX(d.c)},${tY(d.deltaAT)}`).join("");
+
+    // Filled area: above zero (salary better) and below zero (dividend better)
+    const abovePath = data.map((d, i) => `${i ? "L" : "M"}${tX(d.c)},${tY(Math.max(d.deltaAT, 0))}`).join("")
+      + ` L${tX(xMx)},${zeroY} L${tX(xMn)},${zeroY} Z`;
+    const belowPath = data.map((d, i) => `${i ? "L" : "M"}${tX(d.c)},${tY(Math.min(d.deltaAT, 0))}`).join("")
+      + ` L${tX(xMx)},${zeroY} L${tX(xMn)},${zeroY} Z`;
+
+    const yS = Math.ceil(yMx / 2 / 10000) * 10000 || 10000;
+    const yTicks = [];
+    for (let v = -yMx; v <= yMx + yS * 0.5; v += yS) if (Math.abs(v) <= yMx * 1.05) yTicks.push(v);
+    const xTicks = data.filter(d => d.c % 50000 === 0);
+
+    return (
+      <svg viewBox={`0 0 ${cW} ${cH}`} style={{ width: "100%", display: "block" }}>
+        {/* Filled regions */}
+        <path d={abovePath} fill={V.accent} fillOpacity={0.15} stroke="none" />
+        <path d={belowPath} fill={V.accent2} fillOpacity={0.15} stroke="none" />
+        {/* Grid lines */}
+        {yTicks.map(v => <g key={v}><line x1={cP.l} y1={tY(v)} x2={cP.l + iW} y2={tY(v)} stroke={v === 0 ? V.muted : V.grid} strokeWidth={v === 0 ? 1 : 0.5} /><text x={cP.l - 6} y={tY(v) + 3.5} fill={V.muted} fontSize="10" textAnchor="end" fontFamily={V.mono}>{v === 0 ? "0" : `${Math.round(v / 1000)}k`}</text></g>)}
+        {/* X-axis ticks */}
+        {xTicks.map(d => <g key={d.c}><line x1={tX(d.c)} y1={cP.t + iH} x2={tX(d.c)} y2={cP.t + iH + 4} stroke={V.border} strokeWidth="1" /><text x={tX(d.c)} y={cP.t + iH + 16} fill={V.muted} fontSize="9.5" textAnchor="middle" fontFamily={V.mono}>{d.c / 1000}k</text></g>)}
+        {/* Break-even */}
+        {be !== null && be >= xMn && be <= xMx && <><line x1={tX(be)} y1={cP.t} x2={tX(be)} y2={cP.t + iH} stroke={V.be} strokeWidth="1.5" strokeDasharray="5,3" /><text x={tX(be)} y={cP.t - 8} fill={V.be} fontSize="9.5" textAnchor="middle" fontFamily={V.mono}>B/E {F(be)}</text></>}
+        {/* Delta line */}
+        <path d={path} fill="none" stroke={V.warn} strokeWidth="2.5" />
+        {/* Region labels */}
+        <text x={cP.l + 8} y={cP.t + 14} fill={V.accent} fontSize="9.5" fontFamily={V.mono} fontWeight="600">▲ Salary advantage</text>
+        <text x={cP.l + 8} y={cP.t + iH - 6} fill={V.accent2} fontSize="9.5" fontFamily={V.mono} fontWeight="600">▼ Dividend advantage</text>
+        {/* X-axis label */}
         <text x={cW / 2} y={cH - 4} fill={V.muted} fontSize="9.5" textAnchor="middle" fontFamily={V.mono}>Corp Cost / Gross Salary</text>
       </svg>
     );
@@ -737,7 +822,7 @@ export default function App() {
                 </div>
               </div>
               <div style={{ textAlign: "right" }}><div style={{ fontSize: 9.5, fontFamily: V.mono, color: V.muted }}>AFNI Δ</div><div style={{ fontSize: 14, fontWeight: 600, fontFamily: V.mono, color: V.warn }}>{F(Math.abs(sal.familyAFNI - div.familyAFNI))}</div></div>
-              {be && <div style={{ textAlign: "right" }}><div style={{ fontSize: 9.5, fontFamily: V.mono, color: V.muted }}>Break-Even</div><div style={{ fontSize: 14, fontWeight: 600, fontFamily: V.mono, color: V.be }}>{F(be)}</div></div>}
+              <div style={{ textAlign: "right" }}><div style={{ fontSize: 9.5, fontFamily: V.mono, color: V.muted }}>Break-Even</div><div style={{ fontSize: 14, fontWeight: 600, fontFamily: V.mono, color: V.be }}>{be !== null ? F(be) : "No crossing in range"}</div></div>
             </div>
           );
         })()}
@@ -759,14 +844,18 @@ export default function App() {
         </div>
 
         {/* CHARTS */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
-          <div style={{ background: V.card, borderRadius: 8, border: `1px solid ${V.border}`, padding: 12 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 6 }}>Family After-Tax Cash</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 14, marginBottom: 14 }}>
+          <div style={{ background: V.card, borderRadius: 8, border: `1px solid ${V.border}`, padding: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Family After-Tax Cash</div>
             <Chrt data={rng} k1="sAT" k2="dAT" l1="Salary" l2="Dividend" c1={V.accent} c2={V.accent2} />
           </div>
-          <div style={{ background: V.card, borderRadius: 8, border: `1px solid ${V.border}`, padding: 12 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 6 }}>Total Tax & CPP</div>
-            <Chrt data={rng} k1="sTx" k2="dTx" l1="Salary" l2="Dividend" c1={V.accent} c2={V.accent2} />
+          <div style={{ background: V.card, borderRadius: 8, border: `1px solid ${V.border}`, padding: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Total Tax & CPP</div>
+            <Chrt data={rng} k1="sTx" k2="dTx" l1="Salary" l2="Dividend" c1={V.accent} c2={V.accent2} lowerIsBetter />
+          </div>
+          <div style={{ background: V.card, borderRadius: 8, border: `1px solid ${V.border}`, padding: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>After-Tax Cash Difference (Salary − Dividend)</div>
+            <DeltaChrt data={rng} />
           </div>
         </div>
 
