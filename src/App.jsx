@@ -425,7 +425,7 @@ function dividendFull(corpInc, spouseInc, nU6, n617) {
 
 function solve(target, spouseInc, nU6, n617, strat) {
   let lo = 0, hi = 600000;
-  for (let i = 0; i < 80; i++) {
+  for (let i = 0; i < 35; i++) {
     const mid = (lo + hi) / 2;
     const r = strat === "salary" ? salaryFull(mid, spouseInc, nU6, n617) : dividendFull(mid, spouseInc, nU6, n617);
     if (r.familyAfterTax < target) lo = mid; else hi = mid;
@@ -435,7 +435,7 @@ function solve(target, spouseInc, nU6, n617, strat) {
 
 function findBE(spouseInc, nU6, n617) {
   let lo = 30000, hi = 400000;
-  for (let i = 0; i < 80; i++) {
+  for (let i = 0; i < 35; i++) {
     const mid = (lo + hi) / 2;
     const s = salaryFull(mid, spouseInc, nU6, n617);
     const d = dividendFull(mid, spouseInc, nU6, n617);
@@ -473,7 +473,7 @@ export default function App() {
 
   const rng = useMemo(() => {
     const p = [];
-    for (let c = 40000; c <= 300000; c += 5000) {
+    for (let c = 40000; c <= 300000; c += 10000) {
       const s = salaryFull(c, spouseInc, nU6, n617);
       const d = dividendFull(c, spouseInc, nU6, n617);
       p.push({ c, sAT: s.familyAfterTax, dAT: d.familyAfterTax, sTx: s.totalTax, dTx: d.totalTax });
