@@ -488,7 +488,12 @@ export default function App() {
   const tRes = useMemo(() => {
     const sN = solve(target, spouseInc, nU6, n617, "salary");
     const dN = solve(target, spouseInc, nU6, n617, "dividend");
-    return { sal: salaryFull(sN, spouseInc, nU6, n617), div: dividendFull(dN, spouseInc, nU6, n617) };
+    return {
+      sN,
+      dN,
+      sal: salaryFull(sN, spouseInc, nU6, n617),
+      div: dividendFull(dN, spouseInc, nU6, n617),
+    };
   }, [target, spouseInc, nU6, n617]);
 
   const abRes = useMemo(() => ({
@@ -718,12 +723,19 @@ export default function App() {
 
         {/* CALLOUT */}
         {(() => {
-          const sW = mode === "target" ? sal.totalTax < div.totalTax : sal.familyAfterTax > div.familyAfterTax;
+          const sW = mode === "target" ? tRes.sN < tRes.dN : sal.familyAfterTax > div.familyAfterTax;
           const w = sW ? "Salary" : "Dividend", wc = sW ? V.accent : V.accent2;
           return (
             <div style={{ background: V.card, borderRadius: 8, border: `1px solid ${wc}`, padding: 12, marginBottom: 14, display: "flex", flexWrap: "wrap", gap: 14, alignItems: "center" }}>
               <div style={{ flex: "1 1 140px" }}><div style={{ fontSize: 9.5, fontFamily: V.mono, color: V.muted, textTransform: "uppercase" }}>Recommended</div><div style={{ fontSize: 17, fontWeight: 700, color: wc }}>{w}</div></div>
-              <div style={{ textAlign: "right" }}><div style={{ fontSize: 9.5, fontFamily: V.mono, color: V.muted }}>Tax Savings</div><div style={{ fontSize: 14, fontWeight: 600, fontFamily: V.mono, color: wc }}>{F(Math.abs(sal.totalTax - div.totalTax))}</div></div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontSize: 9.5, fontFamily: V.mono, color: V.muted }}>
+                  {mode === "target" ? "Corp Cost Savings" : "Tax Savings"}
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 600, fontFamily: V.mono, color: wc }}>
+                  {mode === "target" ? F(Math.abs(tRes.sN - tRes.dN)) : F(Math.abs(sal.totalTax - div.totalTax))}
+                </div>
+              </div>
               <div style={{ textAlign: "right" }}><div style={{ fontSize: 9.5, fontFamily: V.mono, color: V.muted }}>AFNI Δ</div><div style={{ fontSize: 14, fontWeight: 600, fontFamily: V.mono, color: V.warn }}>{F(Math.abs(sal.familyAFNI - div.familyAFNI))}</div></div>
               {be && <div style={{ textAlign: "right" }}><div style={{ fontSize: 9.5, fontFamily: V.mono, color: V.muted }}>Break-Even</div><div style={{ fontSize: 14, fontWeight: 600, fontFamily: V.mono, color: V.be }}>{F(be)}</div></div>}
             </div>
