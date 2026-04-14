@@ -565,6 +565,8 @@ export default function App() {
   const cW = 860, cH = 300, cP = { t: 32, r: 20, b: 46, l: 64 };
   const iW = cW - cP.l - cP.r, iH = cH - cP.t - cP.b;
   const Chrt = ({ data, k1, k2, l1, l2, c1, c2, lowerIsBetter }) => {
+    const [hoverIdx, setHoverIdx] = useState(null);
+
     const aY = data.flatMap(d => [d[k1], d[k2]]);
     const yMn = Math.min(...aY), yMx = Math.max(...aY), yR = yMx - yMn || 1;
     const xMn = data[0].c, xMx = data[data.length - 1].c, xR = xMx - xMn || 1;
@@ -597,8 +599,23 @@ export default function App() {
     for (let v = Math.floor(yMn / yS) * yS; v <= yMx + yS; v += yS) if (v >= yMn - yS * 0.5 && v <= yMx + yS * 0.5) yT.push(v);
     const xTicks = data.filter(d => d.c % 50000 === 0);
 
+    const handleMouseMove = e => {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const mouseXVB = ((e.clientX - rect.left) / rect.width) * cW;
+      const raw = Math.round(((mouseXVB - cP.l) / iW) * (data.length - 1));
+      setHoverIdx(Math.max(0, Math.min(data.length - 1, raw)));
+    };
+
+    const hd = hoverIdx !== null ? data[hoverIdx] : null;
+    const ttW = 188, ttH = 76;
+    const ttX = hd ? (tX(hd.c) + 14 + ttW > cW - 8 ? tX(hd.c) - 14 - ttW : tX(hd.c) + 14) : 0;
+    const ttY = hd ? Math.max(cP.t + 4, Math.min(cP.t + iH - ttH - 4, tY((hd[k1] + hd[k2]) / 2) - ttH / 2)) : 0;
+
     return (
-      <svg viewBox={`0 0 ${cW} ${cH}`} style={{ width: "100%", display: "block" }}>
+      <svg viewBox={`0 0 ${cW} ${cH}`} style={{ width: "100%", display: "block", cursor: "crosshair" }}
+        onMouseMove={handleMouseMove} onMouseLeave={() => setHoverIdx(null)}>
+        {/* Mouse capture area */}
+        <rect x={cP.l} y={cP.t} width={iW} height={iH} fill="transparent" />
         {/* Filled regions between curves */}
         {fills.map((f, i) => <path key={i} d={f.path} fill={f.salaryBetter ? c1 : c2} fillOpacity={0.13} stroke="none" />)}
         {/* Y-axis grid + labels */}
@@ -615,11 +632,36 @@ export default function App() {
         <rect x={cP.l + 8} y={cP.t + 18} width="12" height="3" rx="1.5" fill={c2} /><text x={cP.l + 24} y={cP.t + 25} fill={V.fg} fontSize="10" fontFamily={V.mono}>{l2}</text>
         {/* X-axis label */}
         <text x={cW / 2} y={cH - 4} fill={V.muted} fontSize="9.5" textAnchor="middle" fontFamily={V.mono}>Corp Cost / Gross Salary</text>
+        {/* Hover overlay */}
+        {hd && (() => {
+          const diff = hd[k1] - hd[k2];
+          const salBetter = lowerIsBetter ? diff < 0 : diff > 0;
+          return (
+            <g>
+              <line x1={tX(hd.c)} y1={cP.t} x2={tX(hd.c)} y2={cP.t + iH} stroke={V.fg} strokeWidth="0.5" strokeOpacity="0.35" strokeDasharray="3,3" />
+              <circle cx={tX(hd.c)} cy={tY(hd[k1])} r="4" fill={c1} stroke={V.bg} strokeWidth="1.5" />
+              <circle cx={tX(hd.c)} cy={tY(hd[k2])} r="4" fill={c2} stroke={V.bg} strokeWidth="1.5" />
+              <rect x={ttX} y={ttY} width={ttW} height={ttH} rx="5" fill={V.card2} stroke={V.border} strokeWidth="0.75" />
+              <text x={ttX + 10} y={ttY + 13} fill={V.muted} fontSize="9" fontFamily={V.mono}>CORP COST</text>
+              <text x={ttX + ttW - 10} y={ttY + 13} fill={V.fg} fontSize="10" fontFamily={V.mono} fontWeight="600" textAnchor="end">{F(hd.c)}</text>
+              <line x1={ttX + 1} y1={ttY + 19} x2={ttX + ttW - 1} y2={ttY + 19} stroke={V.border} strokeWidth="0.5" />
+              <text x={ttX + 10} y={ttY + 33} fill={c1} fontSize="9.5" fontFamily={V.mono}>{l1}</text>
+              <text x={ttX + ttW - 10} y={ttY + 33} fill={V.fg} fontSize="9.5" fontFamily={V.mono} textAnchor="end">{F(hd[k1])}</text>
+              <text x={ttX + 10} y={ttY + 47} fill={c2} fontSize="9.5" fontFamily={V.mono}>{l2}</text>
+              <text x={ttX + ttW - 10} y={ttY + 47} fill={V.fg} fontSize="9.5" fontFamily={V.mono} textAnchor="end">{F(hd[k2])}</text>
+              <line x1={ttX + 1} y1={ttY + 53} x2={ttX + ttW - 1} y2={ttY + 53} stroke={V.border} strokeWidth="0.5" />
+              <text x={ttX + 10} y={ttY + 67} fill={V.muted} fontSize="9.5" fontFamily={V.mono}>{"Δ " + (salBetter ? l1 : l2) + " better"}</text>
+              <text x={ttX + ttW - 10} y={ttY + 67} fill={V.warn} fontSize="9.5" fontFamily={V.mono} textAnchor="end">{F(Math.abs(diff))}</text>
+            </g>
+          );
+        })()}
       </svg>
     );
   };
 
   const DeltaChrt = ({ data }) => {
+    const [hoverIdx, setHoverIdx] = useState(null);
+
     const vals = data.map(d => d.deltaAT);
     const yMx = Math.max(...vals.map(Math.abs), 1);
     // Symmetric y-axis centred on zero
@@ -643,8 +685,23 @@ export default function App() {
     for (let v = -yMx; v <= yMx + yS * 0.5; v += yS) if (Math.abs(v) <= yMx * 1.05) yTicks.push(v);
     const xTicks = data.filter(d => d.c % 50000 === 0);
 
+    const handleMouseMove = e => {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const mouseXVB = ((e.clientX - rect.left) / rect.width) * cW;
+      const raw = Math.round(((mouseXVB - cP.l) / iW) * (data.length - 1));
+      setHoverIdx(Math.max(0, Math.min(data.length - 1, raw)));
+    };
+
+    const hd = hoverIdx !== null ? data[hoverIdx] : null;
+    const ttW = 188, ttH = 58;
+    const ttX = hd ? (tX(hd.c) + 14 + ttW > cW - 8 ? tX(hd.c) - 14 - ttW : tX(hd.c) + 14) : 0;
+    const ttY = hd ? Math.max(cP.t + 4, Math.min(cP.t + iH - ttH - 4, tY(hd.deltaAT) - ttH / 2)) : 0;
+
     return (
-      <svg viewBox={`0 0 ${cW} ${cH}`} style={{ width: "100%", display: "block" }}>
+      <svg viewBox={`0 0 ${cW} ${cH}`} style={{ width: "100%", display: "block", cursor: "crosshair" }}
+        onMouseMove={handleMouseMove} onMouseLeave={() => setHoverIdx(null)}>
+        {/* Mouse capture area */}
+        <rect x={cP.l} y={cP.t} width={iW} height={iH} fill="transparent" />
         {/* Filled regions */}
         <path d={abovePath} fill={V.accent} fillOpacity={0.15} stroke="none" />
         <path d={belowPath} fill={V.accent2} fillOpacity={0.15} stroke="none" />
@@ -661,6 +718,24 @@ export default function App() {
         <text x={cP.l + 8} y={cP.t + iH - 6} fill={V.accent2} fontSize="9.5" fontFamily={V.mono} fontWeight="600">▼ Dividend advantage</text>
         {/* X-axis label */}
         <text x={cW / 2} y={cH - 4} fill={V.muted} fontSize="9.5" textAnchor="middle" fontFamily={V.mono}>Corp Cost / Gross Salary</text>
+        {/* Hover overlay */}
+        {hd && (() => {
+          const salBetter = hd.deltaAT > 0;
+          const deltaStr = (salBetter ? "+" : "−") + F(Math.abs(hd.deltaAT));
+          return (
+            <g>
+              <line x1={tX(hd.c)} y1={cP.t} x2={tX(hd.c)} y2={cP.t + iH} stroke={V.fg} strokeWidth="0.5" strokeOpacity="0.35" strokeDasharray="3,3" />
+              <circle cx={tX(hd.c)} cy={tY(hd.deltaAT)} r="4" fill={V.warn} stroke={V.bg} strokeWidth="1.5" />
+              <rect x={ttX} y={ttY} width={ttW} height={ttH} rx="5" fill={V.card2} stroke={V.border} strokeWidth="0.75" />
+              <text x={ttX + 10} y={ttY + 13} fill={V.muted} fontSize="9" fontFamily={V.mono}>CORP COST</text>
+              <text x={ttX + ttW - 10} y={ttY + 13} fill={V.fg} fontSize="10" fontFamily={V.mono} fontWeight="600" textAnchor="end">{F(hd.c)}</text>
+              <line x1={ttX + 1} y1={ttY + 19} x2={ttX + ttW - 1} y2={ttY + 19} stroke={V.border} strokeWidth="0.5" />
+              <text x={ttX + 10} y={ttY + 33} fill={V.muted} fontSize="9.5" fontFamily={V.mono}>Sal − Div</text>
+              <text x={ttX + ttW - 10} y={ttY + 33} fill={salBetter ? V.accent : V.accent2} fontSize="9.5" fontFamily={V.mono} textAnchor="end">{deltaStr}</text>
+              <text x={ttX + ttW / 2} y={ttY + 49} fill={salBetter ? V.accent : V.accent2} fontSize="9" fontFamily={V.mono} fontWeight="600" textAnchor="middle">{salBetter ? "▲ Salary advantage" : "▼ Dividend advantage"}</text>
+            </g>
+          );
+        })()}
       </svg>
     );
   };
