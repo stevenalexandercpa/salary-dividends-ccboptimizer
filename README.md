@@ -1,16 +1,39 @@
-# React + Vite
+# Salary vs Dividend CCB Optimizer
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A professional browser-based calculator built with React and Vite to compare salary and dividend compensation strategies and estimate how those choices may affect Canada Child Benefit outcomes.
 
-Currently, two official plugins are available:
+## Overview
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+This tool is designed to help model different compensation approaches in an interactive format. It allows users to explore how changes to salary and dividend mix may influence personal planning outcomes, including possible effects on CCB-related results.
 
-## React Compiler
+The application is intended for planning, discussion, and scenario analysis. It is not a substitute for professional judgment, a full tax review, or tailored financial advice.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Features
 
-## Expanding the ESLint configuration
+- Interactive browser-based interface
+- Built with React and Vite
+- Local development workflow with live reload
+- Easy to clone, run, and modify
+- Suitable for internal use, collaboration, or client-facing demonstrations
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Tech Stack
+
+- React
+- Vite
+- JavaScript / JSX
+
+## Requirements
+
+Before running this project locally, install:
+
+- Node.js
+- npm
+- Git (recommended for cloning and version control)
+
+## Getting Started
+
+Clone the repository:
+
+```bash
+git clone https://github.com/stevenalexandercpa/salary-dividends-ccboptimizer.git
+cd salary-dividends-ccboptimizer
