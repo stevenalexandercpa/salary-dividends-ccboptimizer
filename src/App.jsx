@@ -424,11 +424,12 @@ function dividendFull(corpInc, spouseInc, nU6, n617) {
 }
 
 function solve(target, spouseInc, nU6, n617, strat) {
-  let lo = 0, hi = 600000;
+  let lo = 0, hi = 2000000;
+  const calc = v => strat === "salary" ? salaryFull(v, spouseInc, nU6, n617) : dividendFull(v, spouseInc, nU6, n617);
+  if (calc(hi).familyAfterTax < target) return null;
   for (let i = 0; i < 35; i++) {
     const mid = (lo + hi) / 2;
-    const r = strat === "salary" ? salaryFull(mid, spouseInc, nU6, n617) : dividendFull(mid, spouseInc, nU6, n617);
-    if (r.familyAfterTax < target) lo = mid; else hi = mid;
+    if (calc(mid).familyAfterTax < target) lo = mid; else hi = mid;
   }
   return (lo + hi) / 2;
 }
@@ -498,8 +499,8 @@ export default function App() {
     return {
       sN,
       dN,
-      sal: salaryFull(sN, spouseInc, nU6, n617),
-      div: dividendFull(dN, spouseInc, nU6, n617),
+      sal: sN !== null ? salaryFull(sN, spouseInc, nU6, n617) : null,
+      div: dN !== null ? dividendFull(dN, spouseInc, nU6, n617) : null,
     };
   }, [target, spouseInc, nU6, n617]);
 
@@ -512,7 +513,7 @@ export default function App() {
 
   const rng = useMemo(() => {
     const p = [];
-    for (let c = 40000; c <= 300000; c += 10000) {
+    for (let c = 40000; c <= 500000; c += 10000) {
       const s = salaryFull(c, spouseInc, nU6, n617);
       const d = dividendFull(c, spouseInc, nU6, n617);
       p.push({ c, sAT: s.familyAfterTax, dAT: d.familyAfterTax, sTx: s.totalTax, dTx: d.totalTax, deltaAT: s.familyAfterTax - d.familyAfterTax });
@@ -521,6 +522,24 @@ export default function App() {
   }, [spouseInc, nU6, n617]);
 
   const { sal, div } = mode === "target" ? tRes : abRes;
+
+  const recIsSalary = (() => {
+    if (tRes.sN === null && tRes.dN === null) return null;
+    if (tRes.sN === null) return false;
+    if (tRes.dN === null) return true;
+    return mode === "target" ? tRes.sN < tRes.dN : (sal && div ? sal.familyAfterTax > div.familyAfterTax : null);
+  })();
+  const recX = recIsSalary === true ? tRes.sN : recIsSalary === false ? tRes.dN : null;
+  const interpAt = (x, k) => {
+    if (x == null) return null;
+    for (let i = 0; i < rng.length - 1; i++) {
+      if (rng[i].c <= x && x <= rng[i + 1].c) {
+        const t = (x - rng[i].c) / (rng[i + 1].c - rng[i].c);
+        return rng[i][k] + t * (rng[i + 1][k] - rng[i][k]);
+      }
+    }
+    return null;
+  };
 
   const V = {
     bg: "#0c0e14", card: "#151820", card2: "#1a1e2a", border: "#262b3a",
@@ -533,7 +552,7 @@ export default function App() {
 
   const Sec = ({ section, sKey, idx }) => {
     const k = `${sKey}-${idx}`;
-    const open = openSec[k] !== false;
+    const open = openSec[k] === true;
     return (
       <div style={{ marginBottom: 1 }}>
         <button onClick={() => tog(k)} style={{ width: "100%", textAlign: "left", padding: "8px 12px", background: V.card2, border: "none", borderBottom: `1px solid ${V.border}`, color: V.fg, cursor: "pointer", fontFamily: V.mono, fontSize: 11.5, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
@@ -564,7 +583,7 @@ export default function App() {
 
   const cW = 860, cH = 300, cP = { t: 32, r: 20, b: 46, l: 64 };
   const iW = cW - cP.l - cP.r, iH = cH - cP.t - cP.b;
-  const Chrt = ({ data, k1, k2, l1, l2, c1, c2, lowerIsBetter }) => {
+  const Chrt = ({ data, k1, k2, l1, l2, c1, c2, lowerIsBetter, targetLine, dot }) => {
     const [hoverIdx, setHoverIdx] = useState(null);
 
     const aY = data.flatMap(d => [d[k1], d[k2]]);
@@ -624,9 +643,30 @@ export default function App() {
         {xTicks.map(d => <g key={d.c}><line x1={tX(d.c)} y1={cP.t + iH} x2={tX(d.c)} y2={cP.t + iH + 4} stroke={V.border} strokeWidth="1" /><text x={tX(d.c)} y={cP.t + iH + 16} fill={V.muted} fontSize="9.5" textAnchor="middle" fontFamily={V.mono}>{d.c / 1000}k</text></g>)}
         {/* Break-even */}
         {be !== null && be >= xMn && be <= xMx && <><line x1={tX(be)} y1={cP.t} x2={tX(be)} y2={cP.t + iH} stroke={V.be} strokeWidth="1.5" strokeDasharray="5,3" /><text x={tX(be)} y={cP.t - 8} fill={V.be} fontSize="9.5" textAnchor="middle" fontFamily={V.mono}>B/E {F(be)}</text></>}
+        {/* Target line */}
+        {targetLine != null && targetLine >= yMn && targetLine <= yMx && (() => {
+          const ty = tY(targetLine);
+          return (
+            <g>
+              <line x1={cP.l} y1={ty} x2={cP.l + iW} y2={ty} stroke={V.warn} strokeWidth="1" strokeDasharray="5,3" strokeOpacity="0.8" />
+              <text x={cP.l + 6} y={ty - 4} fill={V.warn} fontSize="9" fontFamily={V.mono}>Target {F(targetLine)}</text>
+            </g>
+          );
+        })()}
         {/* Lines */}
         <path d={p1} fill="none" stroke={c1} strokeWidth="2.5" />
         <path d={p2} fill="none" stroke={c2} strokeWidth="2.5" />
+        {/* Recommended dot */}
+        {dot && dot.x >= xMn && dot.x <= xMx && dot.y != null && (() => {
+          const cx = tX(dot.x), cy = tY(dot.y);
+          const labelY = cy - cP.t < 20 ? cy + 16 : cy - 7;
+          return (
+            <g>
+              <circle cx={cx} cy={cy} r="4.5" fill="white" stroke={V.card} strokeWidth="1" />
+              <text x={cx} y={labelY} fill="white" fontSize="9" fontFamily={V.mono} textAnchor="middle">{F(dot.x)}</text>
+            </g>
+          );
+        })()}
         {/* Legend */}
         <rect x={cP.l + 8} y={cP.t + 4} width="12" height="3" rx="1.5" fill={c1} /><text x={cP.l + 24} y={cP.t + 11} fill={V.fg} fontSize="10" fontFamily={V.mono}>{l1}</text>
         <rect x={cP.l + 8} y={cP.t + 18} width="12" height="3" rx="1.5" fill={c2} /><text x={cP.l + 24} y={cP.t + 25} fill={V.fg} fontSize="10" fontFamily={V.mono}>{l2}</text>
@@ -659,7 +699,7 @@ export default function App() {
     );
   };
 
-  const DeltaChrt = ({ data }) => {
+  const DeltaChrt = ({ data, dot }) => {
     const [hoverIdx, setHoverIdx] = useState(null);
 
     const vals = data.map(d => d.deltaAT);
@@ -713,9 +753,20 @@ export default function App() {
         {be !== null && be >= xMn && be <= xMx && <><line x1={tX(be)} y1={cP.t} x2={tX(be)} y2={cP.t + iH} stroke={V.be} strokeWidth="1.5" strokeDasharray="5,3" /><text x={tX(be)} y={cP.t - 8} fill={V.be} fontSize="9.5" textAnchor="middle" fontFamily={V.mono}>B/E {F(be)}</text></>}
         {/* Delta line */}
         <path d={path} fill="none" stroke={V.warn} strokeWidth="2.5" />
+        {/* Recommended dot */}
+        {dot && dot.x >= xMn && dot.x <= xMx && dot.y != null && (() => {
+          const cx = tX(dot.x), cy = tY(dot.y);
+          const labelY = cy - cP.t < 20 ? cy + 16 : cy - 7;
+          return (
+            <g>
+              <circle cx={cx} cy={cy} r="4.5" fill="white" stroke={V.card} strokeWidth="1" />
+              <text x={cx} y={labelY} fill="white" fontSize="9" fontFamily={V.mono} textAnchor="middle">{F(dot.x)}</text>
+            </g>
+          );
+        })()}
         {/* Region labels */}
-        <text x={cP.l + 8} y={cP.t + 14} fill={V.accent} fontSize="9.5" fontFamily={V.mono} fontWeight="600">▲ Salary advantage</text>
-        <text x={cP.l + 8} y={cP.t + iH - 6} fill={V.accent2} fontSize="9.5" fontFamily={V.mono} fontWeight="600">▼ Dividend advantage</text>
+        <text x={cP.l + 8} y={zeroY - 6} fill={V.accent} fontSize="9.5" fontFamily={V.mono} fontWeight="600">▲ Salary advantage</text>
+        <text x={cP.l + 8} y={zeroY + 14} fill={V.accent2} fontSize="9.5" fontFamily={V.mono} fontWeight="600">▼ Dividend advantage</text>
         {/* X-axis label */}
         <text x={cW / 2} y={cH - 4} fill={V.muted} fontSize="9.5" textAnchor="middle" fontFamily={V.mono}>Corp Cost / Gross Salary</text>
         {/* Hover overlay */}
@@ -741,18 +792,18 @@ export default function App() {
   };
 
   const rows = [
-    { l: "Corporate Cost", s: sal.corpCost, d: div.corpCost },
-    { l: "Corporate Tax (SBD 11%)", s: sal.corpTax, d: div.corpTax },
-    { l: "Personal Income Tax", s: sal.personalTax, d: div.personalTax },
-    { l: "CPP (EE + ER)", s: sal.cppEe + sal.cppEr, d: 0 },
-    { l: "Total Tax & CPP", s: sal.totalTax, d: div.totalTax, hl: true, lo: true },
+    { l: "Corporate Cost", s: sal?.corpCost, d: div?.corpCost },
+    { l: "Corporate Tax (SBD 11%)", s: sal?.corpTax, d: div?.corpTax },
+    { l: "Personal Income Tax", s: sal?.personalTax, d: div?.personalTax },
+    { l: "CPP (EE + ER)", s: sal ? sal.cppEe + sal.cppEr : null, d: div ? 0 : null },
+    { l: "Total Tax & CPP", s: sal?.totalTax, d: div?.totalTax, hl: true, lo: true },
     null,
-    { l: "Family AFNI", s: sal.familyAFNI, d: div.familyAFNI, hl: true, lo: true },
-    { l: "CCB", s: sal.ccb, d: div.ccb, hi: true },
-    { l: "BCFB", s: sal.bcfb, d: div.bcfb, hi: true },
+    { l: "Family AFNI", s: sal?.familyAFNI, d: div?.familyAFNI, hl: true, lo: true },
+    { l: "CCB", s: sal?.ccb, d: div?.ccb, hi: true },
+    { l: "BCFB", s: sal?.bcfb, d: div?.bcfb, hi: true },
     null,
-    { l: "Family After-Tax Cash", s: sal.familyAfterTax, d: div.familyAfterTax, hl: true, hi: true },
-    { l: "RRSP Room", s: sal.rrspRoom, d: div.rrspRoom, hi: true },
+    { l: "Family After-Tax Cash", s: sal?.familyAfterTax, d: div?.familyAfterTax, hl: true, hi: true },
+    { l: "RRSP Room", s: sal?.rrspRoom, d: div?.rrspRoom, hi: true },
   ];
 
   return (
@@ -869,13 +920,15 @@ export default function App() {
           {rows.map((r, i) => {
             if (!r) return <div key={i} style={{ height: 1, background: V.border }} />;
             let sC = V.fg, dC = V.fg;
-            if (r.hi) { if (r.s > r.d + 1) sC = V.accent2; else if (r.d > r.s + 1) dC = V.accent2; }
-            if (r.lo) { if (r.s < r.d - 1) sC = V.accent2; else if (r.d < r.s - 1) dC = V.accent2; }
+            if (r.hi && r.s != null && r.d != null) { if (r.s > r.d + 1) sC = V.accent2; else if (r.d > r.s + 1) dC = V.accent2; }
+            if (r.lo && r.s != null && r.d != null) { if (r.s < r.d - 1) sC = V.accent2; else if (r.d < r.s - 1) dC = V.accent2; }
+            const sStr = r.s == null ? "—" : F(r.s);
+            const dStr = r.d == null ? "—" : F(r.d);
             return (
               <div key={i} style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr", background: r.hl ? V.card2 : "transparent" }}>
                 <div style={{ padding: "5px 12px", fontSize: 11, fontFamily: V.mono, color: r.hl ? V.fg : V.muted, fontWeight: r.hl ? 600 : 400 }}>{r.l}</div>
-                <div style={{ padding: "5px 12px", textAlign: "right", fontSize: 12, fontFamily: V.mono, fontWeight: r.hl ? 700 : 500, color: sC }}>{F(r.s)}</div>
-                <div style={{ padding: "5px 12px", textAlign: "right", fontSize: 12, fontFamily: V.mono, fontWeight: r.hl ? 700 : 500, color: dC }}>{F(r.d)}</div>
+                <div style={{ padding: "5px 12px", textAlign: "right", fontSize: 12, fontFamily: V.mono, fontWeight: r.hl ? 700 : 500, color: r.s == null ? V.muted : sC }}>{sStr}</div>
+                <div style={{ padding: "5px 12px", textAlign: "right", fontSize: 12, fontFamily: V.mono, fontWeight: r.hl ? 700 : 500, color: r.d == null ? V.muted : dC }}>{dStr}</div>
               </div>
             );
           })}
@@ -883,54 +936,138 @@ export default function App() {
 
         {/* CALLOUT */}
         {(() => {
-          const sW = mode === "target" ? tRes.sN < tRes.dN : sal.familyAfterTax > div.familyAfterTax;
-          const w = sW ? "Salary" : "Dividend", wc = sW ? V.accent : V.accent2;
+          const inTarget = mode === "target";
+          const sNull = inTarget && tRes.sN === null;
+          const dNull = inTarget && tRes.dN === null;
+          const bothNull = sNull && dNull;
+          let recLabel, recColor;
+          if (bothNull) {
+            recLabel = "No solution in range";
+            recColor = V.muted;
+          } else if (sNull) {
+            recLabel = "Dividend";
+            recColor = V.accent2;
+          } else if (dNull) {
+            recLabel = "Salary";
+            recColor = V.accent;
+          } else {
+            const sW = inTarget ? tRes.sN < tRes.dN : sal.familyAfterTax > div.familyAfterTax;
+            recLabel = sW ? "Salary" : "Dividend";
+            recColor = sW ? V.accent : V.accent2;
+          }
+          const showSavings = !bothNull;
+          const savingsVal = inTarget
+            ? (sNull || dNull ? "—" : F(Math.abs(tRes.sN - tRes.dN)))
+            : F(Math.abs(sal.totalTax - div.totalTax));
+          const showAfniDelta = !inTarget || (!sNull && !dNull);
           return (
-            <div style={{ background: V.card, borderRadius: 8, border: `1px solid ${wc}`, padding: 12, marginBottom: 14, display: "flex", flexWrap: "wrap", gap: 14, alignItems: "center" }}>
-              <div style={{ flex: "1 1 140px" }}><div style={{ fontSize: 9.5, fontFamily: V.mono, color: V.muted, textTransform: "uppercase" }}>Recommended</div><div style={{ fontSize: 17, fontWeight: 700, color: wc }}>{w}</div></div>
-              <div style={{ textAlign: "right" }}>
-                <div style={{ fontSize: 9.5, fontFamily: V.mono, color: V.muted }}>
-                  {mode === "target" ? "Corp Cost Savings" : "Tax Savings"}
-                </div>
-                <div style={{ fontSize: 14, fontWeight: 600, fontFamily: V.mono, color: wc }}>
-                  {mode === "target" ? F(Math.abs(tRes.sN - tRes.dN)) : F(Math.abs(sal.totalTax - div.totalTax))}
-                </div>
-              </div>
-              <div style={{ textAlign: "right" }}><div style={{ fontSize: 9.5, fontFamily: V.mono, color: V.muted }}>AFNI Δ</div><div style={{ fontSize: 14, fontWeight: 600, fontFamily: V.mono, color: V.warn }}>{F(Math.abs(sal.familyAFNI - div.familyAFNI))}</div></div>
+            <div style={{ background: V.card, borderRadius: 8, border: `1px solid ${recColor}`, padding: 12, marginBottom: 14, display: "flex", flexWrap: "wrap", gap: 14, alignItems: "center" }}>
+              <div style={{ flex: "1 1 140px" }}><div style={{ fontSize: 9.5, fontFamily: V.mono, color: V.muted, textTransform: "uppercase" }}>Recommended</div><div style={{ fontSize: bothNull ? 13 : 17, fontWeight: 700, color: recColor }}>{recLabel}</div></div>
+              {showSavings && <div style={{ textAlign: "right" }}>
+                <div style={{ fontSize: 9.5, fontFamily: V.mono, color: V.muted }}>{inTarget ? "Corp Cost Savings" : "Tax Savings"}</div>
+                <div style={{ fontSize: 14, fontWeight: 600, fontFamily: V.mono, color: recColor }}>{savingsVal}</div>
+              </div>}
+              {showAfniDelta && <div style={{ textAlign: "right" }}><div style={{ fontSize: 9.5, fontFamily: V.mono, color: V.muted }}>AFNI Δ</div><div style={{ fontSize: 14, fontWeight: 600, fontFamily: V.mono, color: V.warn }}>{F(Math.abs(sal.familyAFNI - div.familyAFNI))}</div></div>}
               <div style={{ textAlign: "right" }}><div style={{ fontSize: 9.5, fontFamily: V.mono, color: V.muted }}>Break-Even</div><div style={{ fontSize: 14, fontWeight: 600, fontFamily: V.mono, color: V.be }}>{be !== null ? F(be) : "No crossing in range"}</div></div>
             </div>
           );
         })()}
 
         {/* WORKPAPERS SIDE BY SIDE */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
-          <div style={{ background: V.card, borderRadius: 8, border: `1px solid ${V.accent}30`, overflow: "hidden" }}>
-            <div style={{ background: `${V.accent}15`, padding: "9px 12px", borderBottom: `1px solid ${V.border}` }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: V.accent, fontFamily: V.mono }}>Salary Workpaper</div>
+        {(() => {
+          const allKeys = [
+            ...(sal ? sal.trace.sections.map((_, idx) => `sal-${idx}`) : []),
+            ...(div ? div.trace.sections.map((_, idx) => `div-${idx}`) : []),
+          ];
+          const allExpanded = allKeys.length > 0 && allKeys.every(k => openSec[k] === true);
+          const toggleAll = () => setOpenSec(Object.fromEntries(allKeys.map(k => [k, !allExpanded])));
+          return (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
+              <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "flex-end", marginBottom: -4 }}>
+                <button onClick={toggleAll} style={{ fontSize: 10, fontFamily: V.mono, color: V.muted, background: "none", border: `1px solid ${V.border}`, borderRadius: 4, padding: "3px 10px", cursor: "pointer" }}>
+                  {allExpanded ? "Collapse All" : "Expand All"}
+                </button>
+              </div>
+              <div style={{ background: V.card, borderRadius: 8, border: `1px solid ${V.accent}30`, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+                <div style={{ background: `${V.accent}15`, padding: "9px 12px", borderBottom: `1px solid ${V.border}`, flexShrink: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: V.accent, fontFamily: V.mono }}>Salary Workpaper</div>
+                </div>
+                <div style={{ overflowY: "auto", maxHeight: 640 }}>
+                  {sal ? sal.trace.sections.map((sec, idx) => <Sec key={idx} section={sec} sKey="sal" idx={idx} />) : <div style={{ padding: "20px 12px", fontSize: 11, fontFamily: V.mono, color: V.muted }}>Target not reachable in range</div>}
+                </div>
+              </div>
+              <div style={{ background: V.card, borderRadius: 8, border: `1px solid ${V.accent2}30`, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+                <div style={{ background: `${V.accent2}15`, padding: "9px 12px", borderBottom: `1px solid ${V.border}`, flexShrink: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: V.accent2, fontFamily: V.mono }}>Dividend Workpaper</div>
+                </div>
+                <div style={{ overflowY: "auto", maxHeight: 640 }}>
+                  {div ? div.trace.sections.map((sec, idx) => <Sec key={idx} section={sec} sKey="div" idx={idx} />) : <div style={{ padding: "20px 12px", fontSize: 11, fontFamily: V.mono, color: V.muted }}>Target not reachable in range</div>}
+                </div>
+              </div>
             </div>
-            {sal.trace.sections.map((sec, idx) => <Sec key={idx} section={sec} sKey="sal" idx={idx} />)}
+          );
+        })()}
+
+        {/* QUICK-ADJUST (near graphs) */}
+        <div style={{ background: V.card, borderRadius: 8, border: `1px solid ${V.border}`, padding: "10px 14px", marginBottom: 14, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          {/* Target after-tax */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 10, fontFamily: V.mono, color: V.muted, textTransform: "uppercase", letterSpacing: "0.08em", whiteSpace: "nowrap" }}>Target After-Tax</span>
+            <button onClick={() => { const v = Math.max(0, target - 10000); setTarget(v); setTargetInput(String(v)); }} style={{ width: 24, height: 24, background: V.card2, border: `1px solid ${V.border}`, borderRadius: 4, color: V.fg, cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
+            <select
+              value={target}
+              onChange={e => { const v = Number(e.target.value); setTarget(v); setTargetInput(String(v)); }}
+              style={{ background: V.card2, border: `1px solid ${V.border}`, borderRadius: 4, color: V.accent, fontSize: 13, fontFamily: V.mono, fontWeight: 600, padding: "3px 6px", cursor: "pointer", outline: "none" }}
+            >
+              {Array.from({ length: 51 }, (_, i) => i * 10000).map(v => (
+                <option key={v} value={v}>{F(v)}</option>
+              ))}
+            </select>
+            <button onClick={() => { const v = Math.min(500000, target + 10000); setTarget(v); setTargetInput(String(v)); }} style={{ width: 24, height: 24, background: V.card2, border: `1px solid ${V.border}`, borderRadius: 4, color: V.fg, cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
           </div>
-          <div style={{ background: V.card, borderRadius: 8, border: `1px solid ${V.accent2}30`, overflow: "hidden" }}>
-            <div style={{ background: `${V.accent2}15`, padding: "9px 12px", borderBottom: `1px solid ${V.border}` }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: V.accent2, fontFamily: V.mono }}>Dividend Workpaper</div>
-            </div>
-            {div.trace.sections.map((sec, idx) => <Sec key={idx} section={sec} sKey="div" idx={idx} />)}
+
+          <div style={{ width: 1, height: 20, background: V.border, flexShrink: 0 }} />
+
+          {/* Children */}
+          <div style={{ fontSize: 10, fontFamily: V.mono, color: V.muted, textTransform: "uppercase", letterSpacing: "0.08em", flexShrink: 0 }}>Children</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 10, fontFamily: V.mono, color: V.muted, whiteSpace: "nowrap" }}>Under 6</span>
+            <button onClick={() => setNU6(Math.max(0, nU6 - 1))} style={{ width: 24, height: 24, background: V.card2, border: `1px solid ${V.border}`, borderRadius: 4, color: V.fg, cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
+            <select value={nU6} onChange={e => setNU6(Number(e.target.value))} style={{ background: V.card2, border: `1px solid ${V.border}`, borderRadius: 4, color: V.fg, fontSize: 13, fontFamily: V.mono, fontWeight: 600, padding: "3px 6px", cursor: "pointer", outline: "none" }}>
+              {[0,1,2,3,4,5,6].map(v => <option key={v} value={v}>{v}</option>)}
+            </select>
+            <button onClick={() => setNU6(Math.min(6, nU6 + 1))} style={{ width: 24, height: 24, background: V.card2, border: `1px solid ${V.border}`, borderRadius: 4, color: V.fg, cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
           </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 10, fontFamily: V.mono, color: V.muted, whiteSpace: "nowrap" }}>6–17</span>
+            <button onClick={() => setN617(Math.max(0, n617 - 1))} style={{ width: 24, height: 24, background: V.card2, border: `1px solid ${V.border}`, borderRadius: 4, color: V.fg, cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
+            <select value={n617} onChange={e => setN617(Number(e.target.value))} style={{ background: V.card2, border: `1px solid ${V.border}`, borderRadius: 4, color: V.fg, fontSize: 13, fontFamily: V.mono, fontWeight: 600, padding: "3px 6px", cursor: "pointer", outline: "none" }}>
+              {[0,1,2,3,4,5,6].map(v => <option key={v} value={v}>{v}</option>)}
+            </select>
+            <button onClick={() => setN617(Math.min(6, n617 + 1))} style={{ width: 24, height: 24, background: V.card2, border: `1px solid ${V.border}`, borderRadius: 4, color: V.fg, cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+          </div>
+          <div style={{ fontSize: 10, fontFamily: V.mono, color: V.muted, marginLeft: "auto" }}>Total kids: <span style={{ color: V.fg, fontWeight: 600 }}>{nU6 + n617}</span></div>
         </div>
 
         {/* CHARTS */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 14, marginBottom: 14 }}>
           <div style={{ background: V.card, borderRadius: 8, border: `1px solid ${V.border}`, padding: 16 }}>
             <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Family After-Tax Cash</div>
-            <Chrt data={rng} k1="sAT" k2="dAT" l1="Salary" l2="Dividend" c1={V.accent} c2={V.accent2} />
+            <Chrt data={rng} k1="sAT" k2="dAT" l1="Salary" l2="Dividend" c1={V.accent} c2={V.accent2}
+              dot={recX != null ? { x: recX, y: target } : null}
+            />
           </div>
           <div style={{ background: V.card, borderRadius: 8, border: `1px solid ${V.border}`, padding: 16 }}>
             <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Total Tax & CPP</div>
-            <Chrt data={rng} k1="sTx" k2="dTx" l1="Salary" l2="Dividend" c1={V.accent} c2={V.accent2} lowerIsBetter />
+            <Chrt data={rng} k1="sTx" k2="dTx" l1="Salary" l2="Dividend" c1={V.accent} c2={V.accent2} lowerIsBetter
+              dot={recX != null ? { x: recX, y: interpAt(recX, recIsSalary ? "sTx" : "dTx") } : null}
+            />
           </div>
           <div style={{ background: V.card, borderRadius: 8, border: `1px solid ${V.border}`, padding: 16 }}>
             <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>After-Tax Cash Difference (Salary − Dividend)</div>
-            <DeltaChrt data={rng} />
+            <DeltaChrt data={rng}
+              dot={recX != null ? { x: recX, y: interpAt(recX, "deltaAT") } : null}
+            />
           </div>
         </div>
 
