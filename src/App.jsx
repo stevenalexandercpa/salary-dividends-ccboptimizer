@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 
 // ═══════════════════════════════════════════════════════════════════
 // 2026 TAX PARAMETERS
@@ -458,40 +458,14 @@ function findBE(spouseInc, nU6, n617) {
 // ═══════════════════════════════════════════════════════════════════
 export default function App() {
   const [target, setTarget] = useState(100000);
-  const [targetInput, setTargetInput] = useState("100000");
-
   const [spouseInc, setSpouseInc] = useState(20000);
-  const [spouseIncInput, setSpouseIncInput] = useState("20000");
-
   const [nU6, setNU6] = useState(2);
   const [n617, setN617] = useState(0);
-
   const [abCorp, setAbCorp] = useState(150000);
-  const [abCorpInput, setAbCorpInput] = useState("150000");
 
   const [mode, setMode] = useState("target");
   const [openSec, setOpenSec] = useState({});
   const tog = k => setOpenSec(p => ({ ...p, [k]: !p[k] }));
-  const commitNumber = (text, setter, fallback) => {
-    const n = Number(text);
-    if (Number.isFinite(n) && n >= 0) {
-      setter(n);
-    } else {
-      setter(fallback);
-    }
-  };
-
-  useEffect(() => {
-    setTargetInput(String(target));
-  }, [target]);
-
-  useEffect(() => {
-    setSpouseIncInput(String(spouseInc));
-  }, [spouseInc]);
-
-  useEffect(() => {
-    setAbCorpInput(String(abCorp));
-  }, [abCorp]);
 
   const tRes = useMemo(() => {
     const sN = solve(target, spouseInc, nU6, n617, "salary");
@@ -548,7 +522,6 @@ export default function App() {
     mono: "'JetBrains Mono','SF Mono','Fira Code',Consolas,monospace",
     sans: "'DM Sans','Inter',system-ui,sans-serif",
   };
-  const inputS = { width: "100%", padding: "7px 10px", background: V.bg, border: `1px solid ${V.border}`, borderRadius: 6, color: V.fg, fontSize: 14, fontFamily: V.mono, outline: "none", boxSizing: "border-box" };
 
   const Sec = ({ section, sKey, idx }) => {
     const k = `${sKey}-${idx}`;
@@ -792,18 +765,18 @@ export default function App() {
   };
 
   const rows = [
-    { l: "Corporate Cost", s: sal?.corpCost, d: div?.corpCost },
-    { l: "Corporate Tax (SBD 11%)", s: sal?.corpTax, d: div?.corpTax },
+    { l: "Corporate Cost", tip: "Total cash out of the corporation — gross salary + employer CPP for salary, or gross dividend for dividends.", s: sal?.corpCost, d: div?.corpCost },
+    { l: "Corporate Tax (SBD 11%)", tip: "Small Business Deduction rate: 9% federal + 2% BC = 11% on active business income up to the SBD limit.", s: sal?.corpTax, d: div?.corpTax },
     { l: "Personal Income Tax", s: sal?.personalTax, d: div?.personalTax },
-    { l: "CPP (EE + ER)", s: sal ? sal.cppEe + sal.cppEr : null, d: div ? 0 : null },
+    { l: "CPP (EE + ER)", tip: "Canada Pension Plan contributions — Employee (EE) and Employer (ER) portions. Dividends are exempt from CPP.", s: sal ? sal.cppEe + sal.cppEr : null, d: div ? 0 : null },
     { l: "Total Tax & CPP", s: sal?.totalTax, d: div?.totalTax, hl: true, lo: true },
     null,
-    { l: "Family AFNI", s: sal?.familyAFNI, d: div?.familyAFNI, hl: true, lo: true },
-    { l: "CCB", s: sal?.ccb, d: div?.ccb, hi: true },
-    { l: "BCFB", s: sal?.bcfb, d: div?.bcfb, hi: true },
+    { l: "Family AFNI", tip: "Adjusted Family Net Income — combined net income of both spouses used to calculate CCB and BCFB benefit amounts.", s: sal?.familyAFNI, d: div?.familyAFNI, hl: true, lo: true },
+    { l: "CCB", tip: "Canada Child Benefit — tax-free monthly payments. Amount phases out as family AFNI rises above $37,487.", s: sal?.ccb, d: div?.ccb, hi: true },
+    { l: "BCFB", tip: "BC Family Benefit — provincial supplement to the CCB, also income-tested against family AFNI.", s: sal?.bcfb, d: div?.bcfb, hi: true },
     null,
     { l: "Family After-Tax Cash", s: sal?.familyAfterTax, d: div?.familyAfterTax, hl: true, hi: true },
-    { l: "RRSP Room", s: sal?.rrspRoom, d: div?.rrspRoom, hi: true },
+    { l: "RRSP Room", tip: "Registered Retirement Savings Plan contribution room — 18% of earned income (salary only). Dividends generate no RRSP room.", s: sal?.rrspRoom, d: div?.rrspRoom, hi: true },
   ];
 
   return (
@@ -812,105 +785,88 @@ export default function App() {
       <div style={{ maxWidth: 860, margin: "0 auto" }}>
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 10, fontFamily: V.mono, color: V.muted, textTransform: "uppercase", letterSpacing: "0.12em" }}>Steven Alexander CPA Inc.</div>
-          <h1 style={{ fontSize: 19, fontWeight: 700, margin: "3px 0 0" }}>Salary vs. Dividend — Detailed Workpaper</h1>
+          <h1 style={{ fontSize: 19, fontWeight: 700, margin: "3px 0 0", letterSpacing: "0.04em" }}>Salary vs. Dividend — Detailed Workpaper</h1>
           <div style={{ fontSize: 11, fontFamily: V.mono, color: V.muted, marginTop: 2 }}>BC · CCPC SBD · 2026 · Non-eligible dividends · EI exempt</div>
         </div>
 
         
         
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(125px, 1fr))", gap: 10, background: V.card, borderRadius: 8, padding: 12, border: `1px solid ${V.border}`, marginBottom: 14 }}>
-          <div>
-            <div style={{ fontSize: 9.5, fontFamily: V.mono, color: V.muted, textTransform: "uppercase", marginBottom: 3, letterSpacing: "0.04em" }}>
-              Target After-Tax
+        <div style={{ display: "flex", flexWrap: "nowrap", gap: 10, background: V.card, borderRadius: 8, padding: 12, border: `1px solid ${V.border}`, marginBottom: 14, overflowX: "auto" }}>
+          {/* Target After-Tax */}
+          <div style={{ flex: "0 0 auto" }}>
+            <div style={{ fontSize: 9.5, fontFamily: V.mono, color: V.muted, textTransform: "uppercase", marginBottom: 5, letterSpacing: "0.04em" }}>Target After-Tax</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <button onClick={() => { const v = Math.max(0, target - 10000); setTarget(v); }} style={{ width: 24, height: 24, background: V.card2, border: `1px solid ${V.border}`, borderRadius: 4, color: V.fg, cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 0, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>−</button>
+              <select value={target} onChange={e => { const v = Number(e.target.value); setTarget(v); }} style={{ flex: 1, minWidth: 0, background: V.card2, border: `1px solid ${V.border}`, borderRadius: 4, color: V.accent, fontSize: 12, fontFamily: V.mono, fontWeight: 600, padding: "3px 4px", cursor: "pointer", outline: "none" }}>
+                {Array.from({ length: 51 }, (_, i) => i * 10000).map(v => <option key={v} value={v}>{F(v)}</option>)}
+              </select>
+              <button onClick={() => { const v = Math.min(500000, target + 10000); setTarget(v); }} style={{ width: 24, height: 24, background: V.card2, border: `1px solid ${V.border}`, borderRadius: 4, color: V.fg, cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 0, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>+</button>
             </div>
-            <input
-              type="number"
-              value={targetInput}
-              onChange={e => setTargetInput(e.target.value)}
-              onBlur={() => commitNumber(targetInput, setTarget, target)}
-              onKeyDown={e => {
-                if (e.key === "Enter") {
-                  commitNumber(targetInput, setTarget, target);
-                  e.currentTarget.blur();
-                }
-              }}
-              step={5000}
-              style={inputS}
-            />
           </div>
 
-          <div>
-            <div style={{ fontSize: 9.5, fontFamily: V.mono, color: V.muted, textTransform: "uppercase", marginBottom: 3, letterSpacing: "0.04em" }}>
-              Spouse Gross
+          {/* Spouse Gross */}
+          <div style={{ flex: "0 0 auto" }}>
+            <div style={{ fontSize: 9.5, fontFamily: V.mono, color: V.muted, textTransform: "uppercase", marginBottom: 5, letterSpacing: "0.04em" }}>Spouse Gross</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <button onClick={() => { const v = Math.max(0, spouseInc - 5000); setSpouseInc(v); }} style={{ width: 24, height: 24, background: V.card2, border: `1px solid ${V.border}`, borderRadius: 4, color: V.fg, cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 0, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>−</button>
+              <select value={spouseInc} onChange={e => { const v = Number(e.target.value); setSpouseInc(v); }} style={{ flex: 1, minWidth: 0, background: V.card2, border: `1px solid ${V.border}`, borderRadius: 4, color: V.fg, fontSize: 12, fontFamily: V.mono, fontWeight: 600, padding: "3px 4px", cursor: "pointer", outline: "none" }}>
+                {[0, 3500, 5000, 10000, 15000, 20000, ...Array.from({ length: 48 }, (_, i) => (i + 3) * 10000)].map(v => <option key={v} value={v}>{F(v)}</option>)}
+              </select>
+              <button onClick={() => { const v = Math.min(200000, spouseInc + 5000); setSpouseInc(v); }} style={{ width: 24, height: 24, background: V.card2, border: `1px solid ${V.border}`, borderRadius: 4, color: V.fg, cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 0, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>+</button>
             </div>
-            <input
-              type="number"
-              value={spouseIncInput}
-              onChange={e => setSpouseIncInput(e.target.value)}
-              onBlur={() => commitNumber(spouseIncInput, setSpouseInc, spouseInc)}
-              onKeyDown={e => {
-                if (e.key === "Enter") {
-                  commitNumber(spouseIncInput, setSpouseInc, spouseInc);
-                  e.currentTarget.blur();
-                }
-              }}
-              step={1000}
-              style={inputS}
-            />
           </div>
 
-          <div>
-            <div style={{ fontSize: 9.5, fontFamily: V.mono, color: V.muted, textTransform: "uppercase", marginBottom: 3, letterSpacing: "0.04em" }}>
-              Children &lt;6
+          {/* Children <6 */}
+          <div style={{ flex: "0 0 auto" }}>
+            <div style={{ fontSize: 9.5, fontFamily: V.mono, color: V.muted, textTransform: "uppercase", marginBottom: 5, letterSpacing: "0.04em" }}>Children &lt;6</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <button onClick={() => setNU6(Math.max(0, nU6 - 1))} style={{ width: 24, height: 24, background: V.card2, border: `1px solid ${V.border}`, borderRadius: 4, color: V.fg, cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 0, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>−</button>
+              <select value={nU6} onChange={e => setNU6(Number(e.target.value))} style={{ flex: 1, minWidth: 0, background: V.card2, border: `1px solid ${V.border}`, borderRadius: 4, color: V.fg, fontSize: 12, fontFamily: V.mono, fontWeight: 600, padding: "3px 4px", cursor: "pointer", outline: "none" }}>
+                {[0,1,2,3,4,5,6].map(v => <option key={v} value={v}>{v}</option>)}
+              </select>
+              <button onClick={() => setNU6(Math.min(6, nU6 + 1))} style={{ width: 24, height: 24, background: V.card2, border: `1px solid ${V.border}`, borderRadius: 4, color: V.fg, cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 0, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>+</button>
             </div>
-            <input
-              type="number"
-              value={nU6}
-              onChange={e => setNU6(Math.max(0, +e.target.value))}
-              step={1}
-              style={inputS}
-            />
           </div>
 
-          <div>
-            <div style={{ fontSize: 9.5, fontFamily: V.mono, color: V.muted, textTransform: "uppercase", marginBottom: 3, letterSpacing: "0.04em" }}>
-              Children 6–17
+          {/* Children 6-17 */}
+          <div style={{ flex: "0 0 auto" }}>
+            <div style={{ fontSize: 9.5, fontFamily: V.mono, color: V.muted, textTransform: "uppercase", marginBottom: 5, letterSpacing: "0.04em" }}>Children 6–17</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <button onClick={() => setN617(Math.max(0, n617 - 1))} style={{ width: 24, height: 24, background: V.card2, border: `1px solid ${V.border}`, borderRadius: 4, color: V.fg, cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 0, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>−</button>
+              <select value={n617} onChange={e => setN617(Number(e.target.value))} style={{ flex: 1, minWidth: 0, background: V.card2, border: `1px solid ${V.border}`, borderRadius: 4, color: V.fg, fontSize: 12, fontFamily: V.mono, fontWeight: 600, padding: "3px 4px", cursor: "pointer", outline: "none" }}>
+                {[0,1,2,3,4,5,6].map(v => <option key={v} value={v}>{v}</option>)}
+              </select>
+              <button onClick={() => setN617(Math.min(6, n617 + 1))} style={{ width: 24, height: 24, background: V.card2, border: `1px solid ${V.border}`, borderRadius: 4, color: V.fg, cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 0, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>+</button>
             </div>
-            <input
-              type="number"
-              value={n617}
-              onChange={e => setN617(Math.max(0, +e.target.value))}
-              step={1}
-              style={inputS}
-            />
           </div>
 
-          <div>
-            <div style={{ fontSize: 9.5, fontFamily: V.mono, color: V.muted, textTransform: "uppercase", marginBottom: 3, letterSpacing: "0.04em" }}>
-              A/B Corp Cost
+          {/* A/B Corp Cost */}
+          <div style={{ flex: "0 0 auto" }}>
+            <div style={{ fontSize: 9.5, fontFamily: V.mono, color: V.muted, textTransform: "uppercase", marginBottom: 5, letterSpacing: "0.04em" }}>A/B Corp Cost</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <button onClick={() => { const v = Math.max(0, abCorp - 10000); setAbCorp(v); }} style={{ width: 24, height: 24, background: V.card2, border: `1px solid ${V.border}`, borderRadius: 4, color: V.fg, cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 0, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>−</button>
+              <select value={abCorp} onChange={e => { const v = Number(e.target.value); setAbCorp(v); }} style={{ flex: 1, minWidth: 0, background: V.card2, border: `1px solid ${V.border}`, borderRadius: 4, color: V.fg, fontSize: 12, fontFamily: V.mono, fontWeight: 600, padding: "3px 4px", cursor: "pointer", outline: "none" }}>
+                {Array.from({ length: 51 }, (_, i) => i * 10000).map(v => <option key={v} value={v}>{F(v)}</option>)}
+              </select>
+              <button onClick={() => { const v = Math.min(500000, abCorp + 10000); setAbCorp(v); }} style={{ width: 24, height: 24, background: V.card2, border: `1px solid ${V.border}`, borderRadius: 4, color: V.fg, cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 0, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>+</button>
             </div>
-            <input
-              type="number"
-              value={abCorpInput}
-              onChange={e => setAbCorpInput(e.target.value)}
-              onBlur={() => commitNumber(abCorpInput, setAbCorp, abCorp)}
-              onKeyDown={e => {
-                if (e.key === "Enter") {
-                  commitNumber(abCorpInput, setAbCorp, abCorp);
-                  e.currentTarget.blur();
-                }
-              }}
-              step={5000}
-              style={inputS}
-            />
           </div>
         </div>
 
-        <div style={{ display: "flex", marginBottom: 14, borderRadius: 6, overflow: "hidden", border: `1px solid ${V.border}` }}>
-          {[["target", `Target: ${F(target)}`], ["ab", `A/B: ${F(abCorp)} Corp Cost`]].map(([k, lbl]) => (
-            <button key={k} onClick={() => setMode(k)} style={{ flex: 1, padding: "8px", background: mode === k ? V.accent : V.card, color: mode === k ? "#fff" : V.muted, border: "none", cursor: "pointer", fontSize: 11, fontFamily: V.mono, fontWeight: mode === k ? 600 : 400 }}>{lbl}</button>
-          ))}
+        <div style={{ marginBottom: 6, borderRadius: 6, overflow: "hidden", border: `1px solid ${V.border}` }}>
+          <div style={{ display: "flex" }}>
+            {[["target", `Target: ${F(target)}`], ["ab", `A/B: ${F(abCorp)} Corp Cost`]].map(([k, lbl]) => (
+              <button key={k} onClick={() => setMode(k)} style={{ flex: 1, padding: "8px", background: mode === k ? V.accent : V.card, color: mode === k ? "#fff" : V.muted, border: "none", cursor: "pointer", fontSize: 11, fontFamily: V.mono, fontWeight: mode === k ? 600 : 400 }}>{lbl}</button>
+            ))}
+          </div>
+          <div style={{ padding: "8px 14px", background: V.card2, borderTop: `1px solid ${V.border}` }}>
+            {mode === "target"
+              ? <span style={{ fontSize: 10.5, fontFamily: V.sans, color: V.fg, fontStyle: "italic", opacity: 0.75 }}>Finds the gross salary or dividend that delivers your target after-tax cash, then compares corporate cost.</span>
+              : <span style={{ fontSize: 10.5, fontFamily: V.sans, color: V.fg, fontStyle: "italic", opacity: 0.75 }}>Compares after-tax family cash from salary vs. dividend at a fixed corporate cost.</span>
+            }
+          </div>
         </div>
+        <div style={{ marginBottom: 14 }} />
 
         {/* COMPARISON TABLE */}
         <div style={{ background: V.card, borderRadius: 8, border: `1px solid ${V.border}`, overflow: "hidden", marginBottom: 14 }}>
@@ -926,7 +882,7 @@ export default function App() {
             const dStr = r.d == null ? "—" : F(r.d);
             return (
               <div key={i} style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr", background: r.hl ? V.card2 : "transparent" }}>
-                <div style={{ padding: "5px 12px", fontSize: 11, fontFamily: V.mono, color: r.hl ? V.fg : V.muted, fontWeight: r.hl ? 600 : 400 }}>{r.l}</div>
+                <div title={r.tip || undefined} style={{ padding: "5px 12px", fontSize: 11, fontFamily: V.mono, color: r.hl ? V.fg : V.muted, fontWeight: r.hl ? 600 : 400, cursor: r.tip ? "help" : "default", borderBottom: r.tip ? `1px dashed ${V.border}` : undefined, display: "inline-block", maxWidth: "100%", boxSizing: "border-box" }}>{r.l}</div>
                 <div style={{ padding: "5px 12px", textAlign: "right", fontSize: 12, fontFamily: V.mono, fontWeight: r.hl ? 700 : 500, color: r.s == null ? V.muted : sC }}>{sStr}</div>
                 <div style={{ padding: "5px 12px", textAlign: "right", fontSize: 12, fontFamily: V.mono, fontWeight: r.hl ? 700 : 500, color: r.d == null ? V.muted : dC }}>{dStr}</div>
               </div>
@@ -961,14 +917,27 @@ export default function App() {
             : F(Math.abs(sal.totalTax - div.totalTax));
           const showAfniDelta = !inTarget || (!sNull && !dNull);
           return (
-            <div style={{ background: V.card, borderRadius: 8, border: `1px solid ${recColor}`, padding: 12, marginBottom: 14, display: "flex", flexWrap: "wrap", gap: 14, alignItems: "center" }}>
-              <div style={{ flex: "1 1 140px" }}><div style={{ fontSize: 9.5, fontFamily: V.mono, color: V.muted, textTransform: "uppercase" }}>Recommended</div><div style={{ fontSize: bothNull ? 13 : 17, fontWeight: 700, color: recColor }}>{recLabel}</div></div>
-              {showSavings && <div style={{ textAlign: "right" }}>
-                <div style={{ fontSize: 9.5, fontFamily: V.mono, color: V.muted }}>{inTarget ? "Corp Cost Savings" : "Tax Savings"}</div>
-                <div style={{ fontSize: 14, fontWeight: 600, fontFamily: V.mono, color: recColor }}>{savingsVal}</div>
-              </div>}
-              {showAfniDelta && <div style={{ textAlign: "right" }}><div style={{ fontSize: 9.5, fontFamily: V.mono, color: V.muted }}>AFNI Δ</div><div style={{ fontSize: 14, fontWeight: 600, fontFamily: V.mono, color: V.warn }}>{F(Math.abs(sal.familyAFNI - div.familyAFNI))}</div></div>}
-              <div style={{ textAlign: "right" }}><div style={{ fontSize: 9.5, fontFamily: V.mono, color: V.muted }}>Break-Even</div><div style={{ fontSize: 14, fontWeight: 600, fontFamily: V.mono, color: V.be }}>{be !== null ? F(be) : "No crossing in range"}</div></div>
+            <div style={{ background: V.card, borderRadius: 8, border: `1px solid ${recColor}`, marginBottom: 14, overflow: "hidden", display: "flex" }}>
+              {/* Recommendation hero */}
+              <div style={{ padding: "16px 22px", borderRight: `1px solid ${recColor}30`, display: "flex", flexDirection: "column", justifyContent: "center", flex: "0 0 35%" }}>
+                <div style={{ fontSize: 10, fontFamily: V.mono, color: V.muted, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 4 }}>Recommended</div>
+                <div style={{ fontSize: bothNull ? 14 : 24, fontWeight: 800, color: recColor, fontFamily: V.sans, letterSpacing: "-0.01em", lineHeight: 1 }}>{recLabel}</div>
+              </div>
+              {/* Stats row */}
+              <div style={{ display: "flex", flexWrap: "nowrap", flex: 1, minWidth: 0 }}>
+                {showSavings && <div style={{ flex: "1 1 0", minWidth: 0, padding: "16px 18px", borderRight: `1px solid ${V.border}` }}>
+                  <div style={{ fontSize: 11, fontFamily: V.mono, color: V.muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>{inTarget ? "Corp Cost Savings" : "Tax Savings"}</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, fontFamily: V.mono, color: recColor }}>{savingsVal}</div>
+                </div>}
+                {showAfniDelta && <div title="Adjusted Family Net Income difference between salary and dividend — affects CCB and BCFB." style={{ flex: "1 1 0", minWidth: 0, padding: "16px 18px", borderRight: `1px solid ${V.border}`, cursor: "help" }}>
+                  <div style={{ fontSize: 11, fontFamily: V.mono, color: V.muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>AFNI Δ</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, fontFamily: V.mono, color: V.warn }}>{F(Math.abs(sal.familyAFNI - div.familyAFNI))}</div>
+                </div>}
+                <div style={{ flex: "1 1 0", minWidth: 0, padding: "16px 18px" }}>
+                  <div style={{ fontSize: 11, fontFamily: V.mono, color: V.muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>Break-Even</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, fontFamily: V.mono, color: V.be }}>{be !== null ? F(be) : "No crossing"}</div>
+                </div>
+              </div>
             </div>
           );
         })()}
@@ -1013,17 +982,17 @@ export default function App() {
           {/* Target after-tax */}
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontSize: 10, fontFamily: V.mono, color: V.muted, textTransform: "uppercase", letterSpacing: "0.08em", whiteSpace: "nowrap" }}>Target After-Tax</span>
-            <button onClick={() => { const v = Math.max(0, target - 10000); setTarget(v); setTargetInput(String(v)); }} style={{ width: 24, height: 24, background: V.card2, border: `1px solid ${V.border}`, borderRadius: 4, color: V.fg, cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
+            <button onClick={() => { const v = Math.max(0, target - 10000); setTarget(v); }} style={{ width: 24, height: 24, background: V.card2, border: `1px solid ${V.border}`, borderRadius: 4, color: V.fg, cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
             <select
               value={target}
-              onChange={e => { const v = Number(e.target.value); setTarget(v); setTargetInput(String(v)); }}
+              onChange={e => { const v = Number(e.target.value); setTarget(v); }}
               style={{ background: V.card2, border: `1px solid ${V.border}`, borderRadius: 4, color: V.accent, fontSize: 13, fontFamily: V.mono, fontWeight: 600, padding: "3px 6px", cursor: "pointer", outline: "none" }}
             >
               {Array.from({ length: 51 }, (_, i) => i * 10000).map(v => (
                 <option key={v} value={v}>{F(v)}</option>
               ))}
             </select>
-            <button onClick={() => { const v = Math.min(500000, target + 10000); setTarget(v); setTargetInput(String(v)); }} style={{ width: 24, height: 24, background: V.card2, border: `1px solid ${V.border}`, borderRadius: 4, color: V.fg, cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+            <button onClick={() => { const v = Math.min(500000, target + 10000); setTarget(v); }} style={{ width: 24, height: 24, background: V.card2, border: `1px solid ${V.border}`, borderRadius: 4, color: V.fg, cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
           </div>
 
           <div style={{ width: 1, height: 20, background: V.border, flexShrink: 0 }} />
