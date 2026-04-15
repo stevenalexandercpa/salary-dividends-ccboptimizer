@@ -275,7 +275,8 @@ function salaryFull(grossSal, spouseInc, nU6, n617) {
 
   return {
     corpCost, corpTax: 0, personalTax: pTax, cppEe: cpp.total, cppEr: cpp.total,
-    totalTax: allTax, ccb: ccb.amount, bcfb: bcfb.amount,
+    totalTax: allTax, ccb: ccb.amount, bcfb: bcfb.amount, totalBenefits: ccb.amount + bcfb.amount,
+    afniA, spouseAFNI: sp.afni, phantomIncome: 0, spouseTaxCPP: sp.tax + sp.cpp,
     familyAFNI: fAFNI, familyAfterTax: famAT, aAfterTax: aAT,
     spouseAfterTax: sp.afterTax, rrspRoom: rrsp, trace: { sections },
   };
@@ -416,7 +417,8 @@ function dividendFull(corpInc, spouseInc, nU6, n617) {
   return {
     corpCost: corpInc, corpTax, personalTax: pTax, cppEe: 0, cppEr: 0,
     dividendPaid: divPaid, grossedUpDiv: grossedUp,
-    totalTax: allTax, ccb: ccb.amount, bcfb: bcfb.amount,
+    totalTax: allTax, ccb: ccb.amount, bcfb: bcfb.amount, totalBenefits: ccb.amount + bcfb.amount,
+    afniA, spouseAFNI: sp.afni, phantomIncome: phantomInc, spouseTaxCPP: sp.tax + sp.cpp,
     familyAFNI: fAFNI, familyAfterTax: famAT, aAfterTax: aAT,
     spouseAfterTax: sp.afterTax, rrspRoom: minSal * RRSP_RATE,
     trace: { sections },
@@ -765,18 +767,35 @@ export default function App() {
   };
 
   const rows = [
-    { l: "Corporate Cost", tip: "Total cash out of the corporation — gross salary + employer CPP for salary, or gross dividend for dividends.", s: sal?.corpCost, d: div?.corpCost },
-    { l: "Corporate Tax (SBD 11%)", tip: "Small Business Deduction rate: 9% federal + 2% BC = 11% on active business income up to the SBD limit.", s: sal?.corpTax, d: div?.corpTax },
-    { l: "Personal Income Tax", s: sal?.personalTax, d: div?.personalTax },
-    { l: "CPP (EE + ER)", tip: "Canada Pension Plan contributions — Employee (EE) and Employer (ER) portions. Dividends are exempt from CPP.", s: sal ? sal.cppEe + sal.cppEr : null, d: div ? 0 : null },
-    { l: "Total Tax & CPP", s: sal?.totalTax, d: div?.totalTax, hl: true, lo: true },
+    // ── Corporate ──────────────────────────────────────────
+    { hdr: "Corporate" },
+    { l: "Corporate Cost", tip: "Total cash leaving the corporation — gross salary + employer CPP for salary; gross dividend for dividends.", s: sal?.corpCost, d: div?.corpCost },
+    { l: "Corporate Tax (SBD 11%)", tip: "Small Business Deduction: 9% federal + 2% BC = 11% on active business income. Salary is fully deductible — zero corporate tax.", s: sal?.corpTax, d: div?.corpTax, lo: true },
+    // ── Personal tax & CPP ─────────────────────────────────
+    { hdr: "Personal Tax & CPP" },
+    { l: "Personal Income Tax", s: sal?.personalTax, d: div?.personalTax, lo: true },
+    { l: "CPP (EE + ER)", tip: "Canada Pension Plan — Employee (EE) and matching Employer (ER) portions paid on salary. Dividends are exempt from CPP.", s: sal ? sal.cppEe + sal.cppEr : null, d: div ? 0 : null, lo: true },
+    { l: "Spouse Tax & CPP", tip: "Spouse's personal income tax and CPP — identical under both strategies since spouse income is unchanged.", s: sal?.spouseTaxCPP, d: div?.spouseTaxCPP },
     null,
-    { l: "Family AFNI", tip: "Adjusted Family Net Income — combined net income of both spouses used to calculate CCB and BCFB benefit amounts.", s: sal?.familyAFNI, d: div?.familyAFNI, hl: true, lo: true },
-    { l: "CCB", tip: "Canada Child Benefit — tax-free monthly payments. Amount phases out as family AFNI rises above $37,487.", s: sal?.ccb, d: div?.ccb, hi: true },
-    { l: "BCFB", tip: "BC Family Benefit — provincial supplement to the CCB, also income-tested against family AFNI.", s: sal?.bcfb, d: div?.bcfb, hi: true },
+    { l: "Total Tax & CPP", tip: "Sum of all taxes and CPP contributions across corporate, personal, and spouse — the total leakage from gross income.", s: sal?.totalTax, d: div?.totalTax, hl: true, lo: true },
+    // ── AFNI & benefits ────────────────────────────────────
+    { hdr: "AFNI & Child Benefits" },
+    { l: "Taxpayer A AFNI", tip: "Salary: gross salary less CPP2 deduction. Dividend: $3,500 salary + grossed-up dividend (cash + 15% gross-up) — this is higher than cash actually received.", s: sal?.afniA, d: div?.afniA, lo: true },
+    { l: "  Dividend Gross-Up", tip: "The 15% gross-up required by the ITA inflates dividend AFNI above cash received — drives higher CCB/BCFB clawback with no corresponding cash.", s: sal?.phantomIncome, d: div?.phantomIncome, lo: true, indent: true },
+    { l: "Spouse AFNI", tip: "Spouse's Adjusted Net Income — identical under both strategies since spouse income is unchanged.", s: sal?.spouseAFNI, d: div?.spouseAFNI },
+    { l: "Family AFNI", tip: "Combined AFNI of both spouses — the figure used to calculate CCB and BCFB. Higher under dividend due to the gross-up.", s: sal?.familyAFNI, d: div?.familyAFNI, hl: true, lo: true },
+    { l: "CCB", tip: "Canada Child Benefit — tax-free. Phases out above $37,487 family AFNI. Salary yields higher CCB when dividend AFNI is inflated by the gross-up.", s: sal?.ccb, d: div?.ccb, hi: true },
+    { l: "BCFB", tip: "BC Family Benefit — provincial supplement, also income-tested. Same directional impact as CCB.", s: sal?.bcfb, d: div?.bcfb, hi: true },
+    { l: "Total Benefits (CCB + BCFB)", s: sal?.totalBenefits, d: div?.totalBenefits, hl: true, hi: true },
+    // ── Outcome ────────────────────────────────────────────
+    { hdr: "Outcome" },
+    { l: "Taxpayer A Net Cash", tip: "Gross salary less personal tax and CPP (salary), or salary + dividend less personal tax (dividend).", s: sal?.aAfterTax, d: div?.aAfterTax },
+    { l: "Spouse Net Cash", s: sal?.spouseAfterTax, d: div?.spouseAfterTax },
+    { l: "CCB (tax-free)", s: sal?.ccb, d: div?.ccb },
+    { l: "BCFB (tax-free)", s: sal?.bcfb, d: div?.bcfb },
     null,
-    { l: "Family After-Tax Cash", s: sal?.familyAfterTax, d: div?.familyAfterTax, hl: true, hi: true },
-    { l: "RRSP Room", tip: "Registered Retirement Savings Plan contribution room — 18% of earned income (salary only). Dividends generate no RRSP room.", s: sal?.rrspRoom, d: div?.rrspRoom, hi: true },
+    { l: "Family After-Tax Cash", tip: "Taxpayer A net cash + spouse net cash + CCB + BCFB.", s: sal?.familyAfterTax, d: div?.familyAfterTax, hl: true, hi: true },
+    { l: "RRSP Room", tip: "18% of earned income (salary only), max $33,810. Dividends generate no RRSP room — a compounding disadvantage.", s: sal?.rrspRoom, d: div?.rrspRoom, hi: true },
   ];
 
   return (
@@ -810,7 +829,7 @@ export default function App() {
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <button onClick={() => { const v = Math.max(0, spouseInc - 5000); setSpouseInc(v); }} style={{ width: 24, height: 24, background: V.card2, border: `1px solid ${V.border}`, borderRadius: 4, color: V.fg, cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 0, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>−</button>
               <select value={spouseInc} onChange={e => { const v = Number(e.target.value); setSpouseInc(v); }} style={{ flex: 1, minWidth: 0, background: V.card2, border: `1px solid ${V.border}`, borderRadius: 4, color: V.fg, fontSize: 12, fontFamily: V.mono, fontWeight: 600, padding: "3px 4px", cursor: "pointer", outline: "none" }}>
-                {[0, 3500, 5000, 10000, 15000, 20000, ...Array.from({ length: 48 }, (_, i) => (i + 3) * 10000)].map(v => <option key={v} value={v}>{F(v)}</option>)}
+                {[0, 3500, ...Array.from({ length: 20 }, (_, i) => (i + 1) * 5000)].map(v => <option key={v} value={v}>{F(v)}</option>)}
               </select>
               <button onClick={() => { const v = Math.min(200000, spouseInc + 5000); setSpouseInc(v); }} style={{ width: 24, height: 24, background: V.card2, border: `1px solid ${V.border}`, borderRadius: 4, color: V.fg, cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 0, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>+</button>
             </div>
@@ -869,12 +888,17 @@ export default function App() {
         <div style={{ marginBottom: 14 }} />
 
         {/* COMPARISON TABLE */}
-        <div style={{ background: V.card, borderRadius: 8, border: `1px solid ${V.border}`, overflow: "hidden", marginBottom: 14 }}>
+        <div style={{ background: V.card, borderRadius: 8, border: `1px solid ${V.border}`, overflow: "hidden", marginBottom: 22 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr", background: V.card2, borderBottom: `1px solid ${V.border}` }}>
             <div style={{ padding: "9px 12px" }} /><div style={{ padding: "9px 12px", textAlign: "right", fontSize: 12, fontWeight: 700, color: V.accent, fontFamily: V.mono }}>Salary</div><div style={{ padding: "9px 12px", textAlign: "right", fontSize: 12, fontWeight: 700, color: V.accent2, fontFamily: V.mono }}>Dividend</div>
           </div>
           {rows.map((r, i) => {
             if (!r) return <div key={i} style={{ height: 1, background: V.border }} />;
+            if (r.hdr) return (
+              <div key={i} style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr", background: V.card2, borderTop: `1px solid ${V.border}`, borderBottom: `1px solid ${V.border}` }}>
+                <div style={{ padding: "6px 12px", fontSize: 9, fontFamily: V.mono, color: V.muted, textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, gridColumn: "1 / -1" }}>{r.hdr}</div>
+              </div>
+            );
             let sC = V.fg, dC = V.fg;
             if (r.hi && r.s != null && r.d != null) { if (r.s > r.d + 1) sC = V.accent2; else if (r.d > r.s + 1) dC = V.accent2; }
             if (r.lo && r.s != null && r.d != null) { if (r.s < r.d - 1) sC = V.accent2; else if (r.d < r.s - 1) dC = V.accent2; }
@@ -882,7 +906,10 @@ export default function App() {
             const dStr = r.d == null ? "—" : F(r.d);
             return (
               <div key={i} style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr", background: r.hl ? V.card2 : "transparent" }}>
-                <div title={r.tip || undefined} style={{ padding: "5px 12px", fontSize: 11, fontFamily: V.mono, color: r.hl ? V.fg : V.muted, fontWeight: r.hl ? 600 : 400, cursor: r.tip ? "help" : "default", borderBottom: r.tip ? `1px dashed ${V.border}` : undefined, display: "inline-block", maxWidth: "100%", boxSizing: "border-box" }}>{r.l}</div>
+                <div style={{ padding: "5px 12px", paddingLeft: r.indent ? 24 : 12, display: "flex", alignItems: "baseline", gap: 3 }}>
+                  <span title={r.tip || undefined} style={{ fontSize: r.indent ? 10.5 : 11, fontFamily: V.mono, color: r.hl ? V.fg : V.muted, fontWeight: r.hl ? 600 : 400 }}>{r.l}</span>
+                  {r.tip && <sup style={{ fontSize: 7, fontWeight: 700, color: V.accent, opacity: 0.6, lineHeight: 1, userSelect: "none" }}>i</sup>}
+                </div>
                 <div style={{ padding: "5px 12px", textAlign: "right", fontSize: 12, fontFamily: V.mono, fontWeight: r.hl ? 700 : 500, color: r.s == null ? V.muted : sC }}>{sStr}</div>
                 <div style={{ padding: "5px 12px", textAlign: "right", fontSize: 12, fontFamily: V.mono, fontWeight: r.hl ? 700 : 500, color: r.d == null ? V.muted : dC }}>{dStr}</div>
               </div>
@@ -891,6 +918,7 @@ export default function App() {
         </div>
 
         {/* CALLOUT */}
+
         {(() => {
           const inTarget = mode === "target";
           const sNull = inTarget && tRes.sN === null;
@@ -924,20 +952,30 @@ export default function App() {
                 <div style={{ fontSize: bothNull ? 14 : 24, fontWeight: 800, color: recColor, fontFamily: V.sans, letterSpacing: "-0.01em", lineHeight: 1 }}>{recLabel}</div>
               </div>
               {/* Stats row */}
-              <div style={{ display: "flex", flexWrap: "nowrap", flex: 1, minWidth: 0 }}>
-                {showSavings && <div style={{ flex: "1 1 0", minWidth: 0, padding: "16px 18px", borderRight: `1px solid ${V.border}` }}>
-                  <div style={{ fontSize: 11, fontFamily: V.mono, color: V.muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>{inTarget ? "Corp Cost Savings" : "Tax Savings"}</div>
-                  <div style={{ fontSize: 18, fontWeight: 700, fontFamily: V.mono, color: recColor }}>{savingsVal}</div>
-                </div>}
-                {showAfniDelta && <div title="Adjusted Family Net Income difference between salary and dividend — affects CCB and BCFB." style={{ flex: "1 1 0", minWidth: 0, padding: "16px 18px", borderRight: `1px solid ${V.border}`, cursor: "help" }}>
-                  <div style={{ fontSize: 11, fontFamily: V.mono, color: V.muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>AFNI Δ</div>
-                  <div style={{ fontSize: 18, fontWeight: 700, fontFamily: V.mono, color: V.warn }}>{F(Math.abs(sal.familyAFNI - div.familyAFNI))}</div>
-                </div>}
-                <div style={{ flex: "1 1 0", minWidth: 0, padding: "16px 18px" }}>
-                  <div style={{ fontSize: 11, fontFamily: V.mono, color: V.muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>Break-Even</div>
-                  <div style={{ fontSize: 18, fontWeight: 700, fontFamily: V.mono, color: V.be }}>{be !== null ? F(be) : "No crossing"}</div>
-                </div>
-              </div>
+              {(() => {
+                const Stat = ({ label, tip, color, children, border }) => (
+                  <div title={tip} style={{ flex: "1 1 0", minWidth: 0, padding: "16px 18px", borderRight: border ? `1px solid ${V.border}` : undefined, display: "flex", flexDirection: "column", alignItems: "center", cursor: tip ? "default" : undefined }}>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 3, marginBottom: 4 }}>
+                      <span style={{ fontSize: 11, fontFamily: V.mono, color: V.muted, textTransform: "uppercase", letterSpacing: "0.08em" }}>{label}</span>
+                      {tip && <sup style={{ fontSize: 7, fontWeight: 700, color: V.accent, opacity: 0.6, lineHeight: 1, userSelect: "none" }}>i</sup>}
+                    </div>
+                    <div style={{ fontSize: 18, fontWeight: 700, fontFamily: V.mono, color }}>{children}</div>
+                  </div>
+                );
+                const savingsTip = inTarget
+                  ? (sNull || dNull ? undefined : `Salary requires ${F(tRes.sN)} corp cost to hit ${F(target)} after-tax. Dividend requires ${F(tRes.dN)}. Difference: ${F(Math.abs(tRes.sN - tRes.dN))}.`)
+                  : `At ${F(abCorp)} corp cost — salary total tax & CPP: ${F(sal?.totalTax)}, dividend: ${F(div?.totalTax)}. Difference: ${F(Math.abs((sal?.totalTax ?? 0) - (div?.totalTax ?? 0)))}.`;
+                const beTip = be !== null
+                  ? `At ${F(be)} corporate cost, salary and dividend produce identical family after-tax cash. ${recIsSalary ? "Below this point dividend is preferred; above it salary wins." : "Below this point salary is preferred; above it dividend wins."}`
+                  : "No break-even found in the $40k–$500k range — one strategy dominates across all modelled corporate costs.";
+                return (
+                  <div style={{ display: "flex", flexWrap: "nowrap", flex: 1, minWidth: 0 }}>
+                    {showSavings && <Stat label={inTarget ? "Corp Cost Savings" : "Tax Savings"} tip={savingsTip} color={recColor} border>{savingsVal}</Stat>}
+                    {showAfniDelta && <Stat label="AFNI Δ" tip="Adjusted Family Net Income difference between strategies — dividend AFNI is inflated by the 15% gross-up, reducing CCB and BCFB." color={V.warn} border>{F(Math.abs(sal.familyAFNI - div.familyAFNI))}</Stat>}
+                    <Stat label="Break-Even" tip={beTip} color={V.be}>{be !== null ? F(be) : "No crossing"}</Stat>
+                  </div>
+                );
+              })()}
             </div>
           );
         })()}
