@@ -766,7 +766,10 @@ export default function App() {
     );
   };
 
+  const R1K = v => v !== null && v !== undefined ? Math.round(v / 1000) * 1000 : null;
   const rows = [
+    // ── Declaration info ───────────────────────────────────
+    { l: "Declare (rounded to nearest $1k)", tip: "Gross salary before employer CPP, or non-eligible dividend — rounded to the nearest $1,000 for practical filing.", s: sal ? R1K(sal.corpCost - sal.cppEr) : null, d: div ? R1K(div.dividendPaid) : null, info: true },
     // ── Corporate ──────────────────────────────────────────
     { hdr: "Corporate" },
     { l: "Corporate Cost", tip: "Total cash leaving the corporation — gross salary + employer CPP for salary; gross dividend for dividends.", s: sal?.corpCost, d: div?.corpCost },
@@ -899,6 +902,16 @@ export default function App() {
                 <div style={{ padding: "6px 12px", fontSize: 9, fontFamily: V.mono, color: V.muted, textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, gridColumn: "1 / -1" }}>{r.hdr}</div>
               </div>
             );
+            if (r.info) return (
+              <div key={i} style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr", background: "transparent" }}>
+                <div style={{ padding: "4px 12px", display: "flex", alignItems: "baseline", gap: 3 }}>
+                  <span title={r.tip || undefined} style={{ fontSize: 10.5, fontFamily: V.mono, color: V.muted, fontStyle: "italic" }}>{r.l}</span>
+                  {r.tip && <sup style={{ fontSize: 7, fontWeight: 700, color: V.accent, opacity: 0.6, lineHeight: 1, userSelect: "none" }}>i</sup>}
+                </div>
+                <div style={{ padding: "4px 12px", textAlign: "right", fontSize: 11.5, fontFamily: V.mono, fontWeight: 500, fontStyle: "italic", color: r.s == null ? V.muted : V.accent }}>{r.s == null ? "—" : F(r.s)}</div>
+                <div style={{ padding: "4px 12px", textAlign: "right", fontSize: 11.5, fontFamily: V.mono, fontWeight: 500, fontStyle: "italic", color: r.d == null ? V.muted : V.accent2 }}>{r.d == null ? "—" : F(r.d)}</div>
+              </div>
+            );
             let sC = V.fg, dC = V.fg;
             if (r.hi && r.s != null && r.d != null) { if (r.s > r.d + 1) sC = V.accent2; else if (r.d > r.s + 1) dC = V.accent2; }
             if (r.lo && r.s != null && r.d != null) { if (r.s < r.d - 1) sC = V.accent2; else if (r.d < r.s - 1) dC = V.accent2; }
@@ -941,7 +954,7 @@ export default function App() {
           }
           const showSavings = !bothNull;
           const savingsVal = inTarget
-            ? (sNull || dNull ? "—" : F(Math.abs(tRes.sN - tRes.dN)))
+            ? (sNull || dNull ? "—" : F(Math.abs((tRes.sal?.corpCost ?? 0) - (tRes.div?.corpCost ?? 0))))
             : F(Math.abs(sal.totalTax - div.totalTax));
           const showAfniDelta = !inTarget || (!sNull && !dNull);
           return (
@@ -963,10 +976,10 @@ export default function App() {
                   </div>
                 );
                 const savingsTip = inTarget
-                  ? (sNull || dNull ? undefined : `Salary requires ${F(tRes.sN)} corp cost to hit ${F(target)} after-tax. Dividend requires ${F(tRes.dN)}. Difference: ${F(Math.abs(tRes.sN - tRes.dN))}.`)
+                  ? (sNull || dNull ? undefined : `Salary requires ${F(tRes.sal?.corpCost)} corp cost (gross salary + ER CPP) to hit ${F(target)} after-tax. Dividend requires ${F(tRes.div?.corpCost)}. Difference: ${F(Math.abs((tRes.sal?.corpCost ?? 0) - (tRes.div?.corpCost ?? 0)))}.`)
                   : `At ${F(abCorp)} corp cost — salary total tax & CPP: ${F(sal?.totalTax)}, dividend: ${F(div?.totalTax)}. Difference: ${F(Math.abs((sal?.totalTax ?? 0) - (div?.totalTax ?? 0)))}.`;
                 const beTip = be !== null
-                  ? `At ${F(be)} corporate cost, salary and dividend produce identical family after-tax cash. ${recIsSalary ? "Below this point dividend is preferred; above it salary wins." : "Below this point salary is preferred; above it dividend wins."}`
+                  ? `At ${F(be)} corporate cost, salary and dividend produce identical family after-tax cash. Below this point dividend is preferred; above it salary wins.`
                   : "No break-even found in the $40k–$500k range — one strategy dominates across all modelled corporate costs.";
                 return (
                   <div style={{ display: "flex", flexWrap: "nowrap", flex: 1, minWidth: 0 }}>
